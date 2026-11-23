@@ -1,0 +1,25 @@
+[project]
+name = "open-models"
+version = "0.1.0"
+description = "Archive, verify, and run open-weights LLMs locally"
+readme = "README.md"
+authors = [
+    { name = "maxroberts", email = "thomasmaxroberts@icloud.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "huggingface-hub>=2.4.0",
+    "pyyaml>=6.0.4",
+]
+
+[project.scripts]
+om = "open_models.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]

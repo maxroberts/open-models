@@ -1,0 +1,612 @@
+# Model catalog: the source of truth for which models open-models keeps.
+#
+# Each entry pins one model to an exact Hugging Face commit and lists every file we keep,
+# with size (bytes) and sha256, so any copy can be verified offline with `om verify`.
+# Generate entries with `om pin` rather than by hand; validation rules live in
+# src/open_models/catalog.py.
+#
+# Fields:
+#   id        lowercase slug; also the folder name in each store (models/<id>/)
+#   name      display name
+#   repo      Hugging Face repo the files come from
+#   revision  full 40-character commit hash (never a branch name)
+#   format    gguf | safetensors | mlx
+#   tier      hardware needed to run it; edge and utility models are also kept on the
+#             working store (`om sync`), the rest are archive-only:
+#               edge     CPU only, <= ~4 GB RAM (Raspberry Pi, 2012 MacBook Air)
+#               utility  16 GB Apple Silicon laptop
+#               mid      ~24-128 GB of fast memory
+#               frontier ~256 GB+
+#   role      chat | code | embedding
+#   license   from the model card
+#   pinned    date the entry was made (YYYY-MM-DD); `om list` warns after 180 days
+#   files     list of {path, size, sha256}
+#   notes     optional free text
+
+models:
+  - id: qwen3-0.6b-q8
+    name: Qwen3 0.6B (Q8_0 GGUF)
+    repo: Qwen/Qwen3-0.6B-GGUF
+    revision: 23749fefcc72300e3a2ad315e1317431b06b590a
+    format: gguf
+    tier: edge
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    notes: Tiny model used to test the fetch / verify / stage / run pipeline end to end.
+    files:
+      - path: LICENSE
+        size: 11544
+        sha256: 5de36594c10839788a8c589443a8ef9d8b8d17c65a1b5807206ae037fc36c6bd
+      - path: Qwen3-0.6B-Q8_0.gguf
+        size: 639446688
+        sha256: 9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031
+      - path: README.md
+        size: 6236
+        sha256: 44adabae2153c3a7bb741b86fbffd48736bc95118831935fdfc4d3cc1854f2f5
+
+  - id: smollm2-135m-q8
+    name: SmolLM2 135M Instruct (Q8_0)
+    repo: bartowski/SmolLM2-135M-Instruct-GGUF
+    revision: 09816acd5d99df7be770d85ea30822623dab342c
+    format: gguf
+    tier: edge
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: README.md
+      size: 10039
+      sha256: 09b1f05942d11f5c47aac9789dde6fa8e431cdd541028532a7fb6f1c0e63d939
+    - path: SmolLM2-135M-Instruct-Q8_0.gguf
+      size: 144811360
+      sha256: 5a1395716f7913741cc51d98581b9b1228d80987a9f7d3664106742eb06bba83
+    notes: Sized for the original 512 MB Raspberry Pi Model B (ARMv6, untested there).
+
+  - id: smollm2-360m-q8
+    name: SmolLM2 360M Instruct (Q8_0)
+    repo: HuggingFaceTB/SmolLM2-360M-Instruct-GGUF
+    revision: 593b5a2e04c8f3e4ee880263f93e0bd2901ad47f
+    format: gguf
+    tier: edge
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: README.md
+      size: 1847
+      sha256: 5d65a9f761fb64443b565d247593aa3d4ec0f06633a0e16c0231625cdba6a7cd
+    - path: smollm2-360m-instruct-q8_0.gguf
+      size: 386404992
+      sha256: 48ab3034d0dd401fbc721eb1df3217902fee7dab9078992d66431f09b7750201
+    notes: Upper limit for the original 512 MB Raspberry Pi Model B; tight on memory.
+
+  - id: qwen3.5-0.8b-q8
+    name: Qwen3.5 0.8B (Q8_0)
+    repo: unsloth/Qwen3.5-0.8B-GGUF
+    revision: 6ab461498e2023f6e3c1baea90a8f0fe38ab64d0
+    format: gguf
+    tier: edge
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: Qwen3.5-0.8B-Q8_0.gguf
+      size: 811843840
+      sha256: 0ad885ffd4bb022fc4f0d33a3308fa108ef8613159d3b3a67e23abca056b7a6c
+    - path: README.md
+      size: 62950
+      sha256: 962978aa8e3c564c5aca3f8fc3b9a21b4d42a2a045475df38e8a570285047ea5
+
+  - id: lfm3-1.7b-q4
+    name: LFM3 1.7B (Q4_K_M)
+    repo: LiquidAI/LFM3-1.7B-GGUF
+    revision: cd0c74c575b5c416f3011b5b4c298077f26ca8c2
+    format: gguf
+    tier: edge
+    role: chat
+    license: other
+    pinned: '2026-11-23'
+    files:
+    - path: LFM3-1.7B-Q4_K_M.gguf
+      size: 1099627808
+      sha256: 3793e1e6e2266919d6e015287221b41100175a98eddaba92e111aed3b05c93c4
+    - path: LICENSE
+      size: 10574
+      sha256: 4d28ca14dedc0b3d0fcc2b3339f0e79931faa33874f3d24f522183a8fc70068c
+    - path: README.md
+      size: 6989
+      sha256: 71b4dfe7b015b1bd0df6bf3e637966a670ff41e150f0683bca959d5c8203635e
+    notes: 'Needs llama.cpp b11960+. LFM Open License: free below $10M annual company
+      revenue.'
+
+  - id: qwen3.5-2b-q4
+    name: Qwen3.5 2B (Q4_K_M)
+    repo: unsloth/Qwen3.5-2B-GGUF
+    revision: f6d5376be1edb4d416d56da11e5397a961aca8ae
+    format: gguf
+    tier: edge
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: Qwen3.5-2B-Q4_K_M.gguf
+      size: 1280835840
+      sha256: aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223
+    - path: README.md
+      size: 64059
+      sha256: d6507c9243588d5526ceb08840ebd759b0d05aeb96c8aeb42e59f4727df0143a
+    notes: Default for Raspberry Pi 4/5.
+
+  - id: smollm3-3b-q4
+    name: SmolLM3 3B (Q4_K_M)
+    repo: ggml-org/SmolLM3-3B-GGUF
+    revision: 4965cb60b150737b68a0408c36aeefb65078f894
+    format: gguf
+    tier: edge
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: README.md
+      size: 10821
+      sha256: 1b1f541a8ef3d5481da2df378f6a987622f08be18ffd3658d3ba7e29941aa68b
+    - path: SmolLM3-Q4_K_M.gguf
+      size: 1915305312
+      sha256: 8334b850b7bd46238c16b0c550df2138f0889bf433809008cc17a8b05761863e
+    notes: Fully open training data and recipe.
+
+  - id: qwen3.5-4b-q4
+    name: Qwen3.5 4B (Q4_K_M)
+    repo: unsloth/Qwen3.5-4B-GGUF
+    revision: e87f176479d0855a907a41277aca2f8ee7a09523
+    format: gguf
+    tier: edge
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: Qwen3.5-4B-Q4_K_M.gguf
+      size: 2740937888
+      sha256: 00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4
+    - path: README.md
+      size: 78906
+      sha256: 28546f5fc4f22ee1b3f17b908957f17fcfa66174032136265bdb27f404bc1e6c
+    notes: Best quality for 4-8 GB machines (Pi 5 8GB, 2012 MacBook Air).
+
+  - id: gemma-4-e2b-qat
+    name: Gemma 4 E2B it (QAT q4_0, Google)
+    repo: google/gemma-4-E2B-it-qat-q4_0-gguf
+    revision: 675cff42a74c774d6cb76f76d8eacb49b48c9b93
+    format: gguf
+    tier: edge
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: README.md
+      size: 29260
+      sha256: 942e93b96c2f7f2b5fdd8d5578f0f1215e4a354f12e202999b4fbc864bb02ef5
+    - path: gemma-4-E2B_q4_0-it.gguf
+      size: 3349516256
+      sha256: fa401b55b07ee70a54c6dae3903c783a6e65064312529ea57175cb5f8dec6634
+
+  - id: embeddinggemma-2-q8
+    name: EmbeddingGemma 2 (Q8_0)
+    repo: ggml-org/embeddinggemma-2-GGUF
+    revision: 6ea3e3a309d12a4779cfda98b8c19800d2d5da71
+    format: gguf
+    tier: edge
+    role: embedding
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: README.md
+      size: 449
+      sha256: 319bbb434d2abe8f54f8571fa1e90973aa3cde85ab260312b7b7f8e3d9da02f5
+    - path: embeddinggemma-2-Q8_0.gguf
+      size: 309855456
+      sha256: 2188ac1deca4b77dffefd603c2776a9d76d9d74ec01841392982ebb840b09135
+    notes: 'Text embeddings for document search: llama-server --embedding. Image-embedding
+      mmproj not kept.'
+
+  - id: qwen3-embedding-0.6b-q8
+    name: Qwen3 Embedding 0.6B (Q8_0)
+    repo: Qwen/Qwen3-Embedding-0.6B-GGUF
+    revision: 370f27d7550e0def9b39c1f16d3fbaa13aa67728
+    format: gguf
+    tier: edge
+    role: embedding
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: Qwen3-Embedding-0.6B-Q8_0.gguf
+      size: 639150592
+      sha256: 06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439
+    - path: README.md
+      size: 11889
+      sha256: 5dc596e802ce79342678281d42ec4b98fbee2fee241758df330cdc35cc15d29f
+    notes: 'Multilingual text embeddings: llama-server --embedding.'
+
+  - id: qwen3.5-9b-q4
+    name: Qwen3.5 9B (Q4_K_M)
+    repo: unsloth/Qwen3.5-9B-GGUF
+    revision: 3885219b6810b007914f3a7950a8d1b469d598a5
+    format: gguf
+    tier: utility
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: Qwen3.5-9B-Q4_K_M.gguf
+      size: 5680522464
+      sha256: 03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8
+    - path: README.md
+      size: 78888
+      sha256: e50f8066e39c38cbc2da5dd94b9a9a2712b64c4921f107a5adb4b3ca5b6bbac0
+    - path: mmproj-F16.gguf
+      size: 918166080
+      sha256: f70dc3509053962b0d0d3ee8a7eacebf5d60aa560cad78254ae8698516ae029f
+    notes: Vision via mmproj-F16.gguf (llama-server --mmproj).
+
+  - id: gemma-4-12b-qat
+    name: Gemma 4 12B it (QAT q4_0, Google)
+    repo: google/gemma-4-12B-it-qat-q4_0-gguf
+    revision: 29d097773436b69ff9feafd636ab4cf873786537
+    format: gguf
+    tier: utility
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: README.md
+      size: 29260
+      sha256: eb6a50bb1c78dcbf501b039a9b0793f732909bc7a093d9812ff03f5be2da84ce
+    - path: gemma-4-12b-it-qat-q4_0.gguf
+      size: 6975879296
+      sha256: 93567e57a8fe10b23569b9d9ec38cd005deedf71e29477c421a4b83f418a538b
+
+  - id: gemma-4-e4b-qat
+    name: Gemma 4 E4B it (QAT q4_0, Google)
+    repo: google/gemma-4-E4B-it-qat-q4_0-gguf
+    revision: 4b4a2c1d584be7264f87aac328a1bc739ce81b6c
+    format: gguf
+    tier: utility
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: README.md
+      size: 29233
+      sha256: 6c8dbc23d482d76d6a02e6804941fae6dccdcd20e6372c26e4dec35e21348607
+    - path: gemma-4-E4B_q4_0-it.gguf
+      size: 5154941280
+      sha256: 676c35070db6dbe52f93e9c864ee0fba4eddea94b9c875d9cb10daff453fbaee
+
+  - id: granite-4.2-8b-q4
+    name: Granite 4.2 8B (Q4_K_M)
+    repo: ibm-granite/granite-4.2-8b-GGUF
+    revision: 93f3f6a8938ee922b784cf4e5b4203cd3428df8f
+    format: gguf
+    tier: utility
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: README.md
+      size: 472
+      sha256: 1f43efacac28527c2392735115a1f14f9bc736bedc6f7982f41513e81041899f
+    - path: granite-4.2-8b-Q4_K_M.gguf
+      size: 5347917952
+      sha256: 16a9369d0805f80b7377d25d87f937a90c05dc04ad79173a52001e42c9aab311
+    notes: Tool use and document Q&A.
+
+  - id: mellum2.1-12b-q4
+    name: Mellum 2.1 12B-A2.5B Thinking (Q4_K_M)
+    repo: JetBrains/Mellum2.1-12B-A2.5B-Thinking-GGUF
+    revision: 4159d684ffdb09ba89dc2a58feb3e75c54eef036
+    format: gguf
+    tier: utility
+    role: code
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: Mellum2.1-12B-A2.5B-Thinking-Q4_K_M.gguf
+      size: 8071295264
+      sha256: ecc4d5b8107fc219e23c494b2d107552137637b6c6002ee713e0ba8af7fa2755
+    - path: README.md
+      size: 8207
+      sha256: e853fa5c8f903333ea603fdbfdd7074009f853e032cdc5962c6147eefe52ab1e
+    notes: Coding model. Needs llama.cpp b11747+.
+
+  - id: gpt-oss-20b-mxfp4
+    name: gpt-oss-20b (MXFP4)
+    repo: ggml-org/gpt-oss-20b-GGUF
+    revision: 41e8a94d15d62070b36cf4553a0250717ecf46b8
+    format: gguf
+    tier: mid
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: README.md
+      size: 478
+      sha256: beaad8ae585fd880fcdfd98cb9fdae8ac8c9766773b5f9cd0d6d1167079ff1e0
+    - path: gpt-oss-20b-MXFP4.gguf
+      size: 12109566624
+      sha256: 27cd6c432c7672cb812a92f611cf3ba7bbc35928262bb1e1253ff4ee6ae35901
+    notes: Runs on a 16 GB Mac only if the GPU memory limit is raised (sysctl iogpu.wired_limit_mb);
+      comfortable on 24 GB+.
+
+  - id: gpt-oss-120b-mxfp4
+    name: gpt-oss-120b (MXFP4)
+    repo: ggml-org/gpt-oss-120b-GGUF
+    revision: f59990363fbbb67f01bce03e5e7bf0929e3e320b
+    format: gguf
+    tier: mid
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: README.md
+      size: 473
+      sha256: d45f4d3b0f15cbb6c77be0f35c4970f51aa7e33112d4b4aad467970b5fdaa6ba
+    - path: gpt-oss-120b-MXFP4.gguf
+      size: 63387346208
+      sha256: 582bd40f6886200101f4c4ed9f25f3fe80cc14c86e9e2b37746cd8904a0c622d
+
+  - id: qwen3.5-122b-a10b-q4xl
+    name: Qwen3.5 122B-A10B (UD-Q4_K_XL)
+    repo: unsloth/Qwen3.5-122B-A10B-GGUF
+    revision: 51eab4d59d53f573fb9206cb3ce613f1d0aa392b
+    format: gguf
+    tier: mid
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: README.md
+      size: 95035
+      sha256: 99a4dd08b5afd32c0fdb727a14cb53289de896b8b0a439e62b2f71a76590da1f
+    - path: UD-Q4_K_XL/Qwen3.5-122B-A10B-UD-Q4_K_XL-00001-of-00003.gguf
+      size: 10943552
+      sha256: 467c9bd92ea518539cf75bf5a5fbfbd35e9a0b40d766ccaa67bf120e12041df3
+    - path: UD-Q4_K_XL/Qwen3.5-122B-A10B-UD-Q4_K_XL-00002-of-00003.gguf
+      size: 49640779424
+      sha256: ecdbd42d43b0df9fa0ef9a584e09e95a43966ef03a122aba0b87a99d44d9ad98
+    - path: UD-Q4_K_XL/Qwen3.5-122B-A10B-UD-Q4_K_XL-00003-of-00003.gguf
+      size: 27378273056
+      sha256: 13300e0f059e6fa21aa0fabde2a554f9deea366c0e54f268045769b214b28c97
+    - path: mmproj-F16.gguf
+      size: 908724960
+      sha256: 691af71bd41d437ce4a1d989f589c4b492237d702b33819ed8f897f9fae6e725
+    notes: Vision via mmproj-F16.gguf.
+
+  - id: qwen3.8-27b-q8
+    name: Qwen3.8 27B (Q8_0)
+    repo: unsloth/Qwen3.8-27B-GGUF
+    revision: 4af51b3542f775b0a8e4b310bfb3f17e01c306c9
+    format: gguf
+    tier: mid
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: Qwen3.8-27B-Q8_0.gguf
+      size: 29047086048
+      sha256: a680f44a06920e5d689774823782006aa3acc8db95750323373b24139b67e348
+    - path: README.md
+      size: 6945
+      sha256: 68884946cd5043f191733b0acf7714dc6a1aeb055ee911ec4c487515178b69a2
+    - path: mmproj-F16.gguf
+      size: 927607488
+      sha256: cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e
+    notes: Vision via mmproj-F16.gguf.
+
+  - id: qwen3.6-35b-a3b-q8
+    name: Qwen3.6 35B-A3B (Q8_0)
+    repo: unsloth/Qwen3.6-35B-A3B-GGUF
+    revision: a483e9e6cbd595906af30beda3187c2663a1118c
+    format: gguf
+    tier: mid
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: Qwen3.6-35B-A3B-Q8_0.gguf
+      size: 36903140320
+      sha256: d1a395809f65a43a13ad119eb4e7acdef1ac6d68120f39902c8ab96e72794a59
+    - path: README.md
+      size: 66568
+      sha256: 1aabbfa45b14118f4e11a0c107f6789625afb6f4227ff82efc45cdb27acc3a6f
+    - path: mmproj-F16.gguf
+      size: 899283680
+      sha256: 8971ee4f331ff0a4c609374f32984b3d4e6dc086c0aa35f1d637fad1829e887f
+    notes: Fast MoE; good for agentic coding. Vision via mmproj-F16.gguf.
+
+  - id: gemma-4-31b-q8
+    name: Gemma 4 31B it (Q8_0)
+    repo: unsloth/gemma-4-31B-it-GGUF
+    revision: c1ac76e99d5513b141e8adde7288b85c3f9c32ec
+    format: gguf
+    tier: mid
+    role: chat
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: README.md
+      size: 28499
+      sha256: 214e78a7cf8d369adbb5315142d373a4eb4a30059ff7dbc31fe435f60de3f598
+    - path: gemma-4-31B-it-Q8_0.gguf
+      size: 32635677632
+      sha256: d5808e5874e660a85ab45b2da00c9e3b4a003621249a333772232d1a703e4d67
+    - path: mmproj-F16.gguf
+      size: 1198957024
+      sha256: 6edcca228213c28d3567a35d22f849eea52d8360875093851959adf5d2f270eb
+    notes: Vision via mmproj-F16.gguf.
+
+  - id: qwen3-coder-next-q8
+    name: Qwen3-Coder-Next 80B (Q8_0, Qwen)
+    repo: Qwen/Qwen3-Coder-Next-GGUF
+    revision: b82fb7382639d97b38fa7672e526c760c2fb358e
+    format: gguf
+    tier: mid
+    role: code
+    license: apache-2.0
+    pinned: '2026-11-23'
+    files:
+    - path: Qwen3-Coder-Next-Q8_0/Qwen3-Coder-Next-Q8_0-00001-of-00004.gguf
+      size: 26190321568
+      sha256: 30b7554fc0c846a5dc3ecf585884c77471f73e3da698a8ba4fabd8e7868c6533
+    - path: Qwen3-Coder-Next-Q8_0/Qwen3-Coder-Next-Q8_0-00002-of-00004.gguf
+      size: 26212935584
+      sha256: 3f96379de5a5c4655cb378710ea571d5e9cc96f260120a44a6477198efcdc27d
+    - path: Qwen3-Coder-Next-Q8_0/Qwen3-Coder-Next-Q8_0-00003-of-00004.gguf
+      size: 26047157792
+      sha256: 5dd1ce07eaae95ee430331dc9c6f3120ff88e4211ad3a0cceeaa963f25328504
+    - path: Qwen3-Coder-Next-Q8_0/Qwen3-Coder-Next-Q8_0-00004-of-00004.gguf
+      size: 6361641024
+      sha256: 76730702c630bf76305139165cb85421858604030851dfd64fe96a5e67cda99d
+    - path: README.md
+      size: 5684
+      sha256: 22ed6e55c749e8e56b118d09e7c5e04e98e03fc12139ac32804ecf856410209a
+    notes: Coding model; run with --jinja.
+
+  - id: glm-5.3-q4xl
+    name: GLM-5.3 753B (UD-Q4_K_XL)
+    repo: unsloth/GLM-5.3-GGUF
+    revision: 346b3591c7f28d1a23716f97a065ecf12ec14771
+    format: gguf
+    tier: frontier
+    role: chat
+    license: other
+    pinned: '2026-11-23'
+    files:
+    - path: LICENSE
+      size: 4263
+      sha256: 96e1622099fc9d6b70c9760f007d99e66d7497eec636b63c60fe208401e9170c
+    - path: README.md
+      size: 14386
+      sha256: 99bedbc8ef940ead10eaaab9b106e47b4db761e0ca463dff268549a496ca29f9
+    - path: UD-Q4_K_XL/GLM-5.3-UD-Q4_K_XL-00001-of-00011.gguf
+      size: 9428677
+      sha256: 02a3e367e8b5f5ee3341d556211faa2cc956c3e77ad0e298c6805323bfaeb02d
+    - path: UD-Q4_K_XL/GLM-5.3-UD-Q4_K_XL-00002-of-00011.gguf
+      size: 49433942336
+      sha256: 374daff9e093b362a12ca89904fd0511df38b2a9794029e272c8639587a13402
+    - path: UD-Q4_K_XL/GLM-5.3-UD-Q4_K_XL-00003-of-00011.gguf
+      size: 48566415136
+      sha256: 9a13948a0c7747e374766ab32272e8bf5ee2ac260ed581419cc980c00df1bb9c
+    - path: UD-Q4_K_XL/GLM-5.3-UD-Q4_K_XL-00004-of-00011.gguf
+      size: 48566415136
+      sha256: 1fee29db6ab247f97e42cc7dd4132ce35f15f41fb42ba9110b73c25471171f9b
+    - path: UD-Q4_K_XL/GLM-5.3-UD-Q4_K_XL-00005-of-00011.gguf
+      size: 48566415136
+      sha256: 7d38557e09934a3f6cf4eb7aa7ea8c04929bf2d40db8ba8494529d51be04bb4e
+    - path: UD-Q4_K_XL/GLM-5.3-UD-Q4_K_XL-00006-of-00011.gguf
+      size: 48566415136
+      sha256: 3f6c47e4e32f7b1f9b844124622cc8d506facdb58e3304b9b4429b6c3af4f53d
+    - path: UD-Q4_K_XL/GLM-5.3-UD-Q4_K_XL-00007-of-00011.gguf
+      size: 48566415136
+      sha256: 03114618ca505e4dbd63e0c8fb478cb54db86ff32ddd3681160589d8a958db8e
+    - path: UD-Q4_K_XL/GLM-5.3-UD-Q4_K_XL-00008-of-00011.gguf
+      size: 48566415136
+      sha256: e202e8679571572ae5ab490d021e3f0d0ada4794521464e6735e62516bedff96
+    - path: UD-Q4_K_XL/GLM-5.3-UD-Q4_K_XL-00009-of-00011.gguf
+      size: 48566415136
+      sha256: 05d81908bc8ffd1e2ff6bb6a4e7a347c455ce87d7d6c473415d37f1749f0a337
+    - path: UD-Q4_K_XL/GLM-5.3-UD-Q4_K_XL-00010-of-00011.gguf
+      size: 48566415136
+      sha256: 252eac782187e63ffdbf0650eb79538a53626991f7dfd06106cfbbd5eb1a0bb3
+    - path: UD-Q4_K_XL/GLM-5.3-UD-Q4_K_XL-00011-of-00011.gguf
+      size: 29314424736
+      sha256: d69bc418b2a08103d1b42340e803e1a98582d3766e4593c4a490475ac5bb811b
+    notes: 'GLM-5.3 license: MIT-style; extra condition only for >$10B-revenue model-as-a-service
+      operators. Needs ~512 GB RAM.'
+
+  - id: glm-5.3-flash-q4xl
+    name: GLM-5.3 Flash 321B (UD-Q4_K_XL)
+    repo: unsloth/GLM-5.3-Flash-GGUF
+    revision: a38483c8cd5df544f53d70fb281afe97369d5ab6
+    format: gguf
+    tier: frontier
+    role: chat
+    license: mit
+    pinned: '2026-11-23'
+    files:
+    - path: README.md
+      size: 8377
+      sha256: 18d3309e9aab7bb22bbc5a2791fc1e831f776aaa26b251521cb7899920b87ce6
+    - path: UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00001-of-00006.gguf
+      size: 9429984
+      sha256: b59c030090f012b38213bc8c4f78ce10767f2693d730d0dbcd3dc16a5f69e2bc
+    - path: UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00002-of-00006.gguf
+      size: 49198039200
+      sha256: d3ecb6ff3957a99878f9a0352676a0913748a431a9a4a1b1ffa5ade9b8947a74
+    - path: UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00003-of-00006.gguf
+      size: 49988626304
+      sha256: 328073c004e7c5395b208247feed26089db247b94dd8fa4ab0f2569d86c1d770
+    - path: UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00004-of-00006.gguf
+      size: 48700701344
+      sha256: 6803ab7effa6da4a0b02c9c7865952fdd6c5b2e10e53903348da369e90bd13f9
+    - path: UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00005-of-00006.gguf
+      size: 49026026752
+      sha256: 852f3df9dacde3d196796f9fe738468e80c8701555ff0a8c30bc010fb8974dd8
+    - path: UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00006-of-00006.gguf
+      size: 2784497888
+      sha256: c6ba510fafc1e12cc0addbc361a329c0c592ab96980098e7e25e107d8faa983e
+    - path: mmproj-F16.gguf
+      size: 1128047296
+      sha256: 922b809664d6a89cc1e40bfeaa63618000edc6651baf4082ce0718a784adf947
+    notes: Needs ~256 GB RAM. Vision via mmproj-F16.gguf.
+
+  - id: deepseek-v4.1-flash-q4xl
+    name: DeepSeek V4.1 Flash 1017 763B (UD-Q4_K_XL + Q6_K engram)
+    repo: unsloth/DeepSeek-V4.1-Flash-1017-GGUF
+    revision: dfcee0ec8d6b874c6663eca0fc55d90ab32534c8
+    format: gguf
+    tier: frontier
+    role: chat
+    license: mit
+    pinned: '2026-11-23'
+    files:
+    - path: README.md
+      size: 7355
+      sha256: 907b49fe8f9bb50c4a2f597fbd8ead21d0898d194b9ae73a0fa99b0dd6443846
+    - path: UD-Q4_K_XL/DeepSeek-V4.1-Flash-1017-UD-Q4_K_XL-00001-of-00009.gguf
+      size: 5780589
+      sha256: cc15d470afcb030558bbc4d8e2ccd840182e2e95de1a95198138efe63a5fd99f
+    - path: UD-Q4_K_XL/DeepSeek-V4.1-Flash-1017-UD-Q4_K_XL-00002-of-00009.gguf
+      size: 48129640000
+      sha256: 17df217d8fc26a39f21ea40805dc6ab788c7ce8623a59a95c431051df7eafc94
+    - path: UD-Q4_K_XL/DeepSeek-V4.1-Flash-1017-UD-Q4_K_XL-00003-of-00009.gguf
+      size: 48129640000
+      sha256: 0c8065f620a049cb437024c54ff12c314c94603a1cc683f5191be4689d6d6d3b
+    - path: UD-Q4_K_XL/DeepSeek-V4.1-Flash-1017-UD-Q4_K_XL-00004-of-00009.gguf
+      size: 48129640000
+      sha256: 3bd8b2ebf8f51d8708a73ae0895f8d4acc7e4c983ba4e89d038492b203cc89ac
+    - path: UD-Q4_K_XL/DeepSeek-V4.1-Flash-1017-UD-Q4_K_XL-00005-of-00009.gguf
+      size: 48129640000
+      sha256: 929054a6bbf3701765779b58c37988b6c6284a3b8413901858b59c0e95f37cc3
+    - path: UD-Q4_K_XL/DeepSeek-V4.1-Flash-1017-UD-Q4_K_XL-00006-of-00009.gguf
+      size: 48129640000
+      sha256: 49d3de04bd6a09de786c9ef7db900eae02ee9fd391573f91a923013d7d5b24d3
+    - path: UD-Q4_K_XL/DeepSeek-V4.1-Flash-1017-UD-Q4_K_XL-00007-of-00009.gguf
+      size: 48129640000
+      sha256: f18feae5878dd680f1ea87ecd1d84f4fb098480298b25a3162dcbdab8dc2ca5b
+    - path: UD-Q4_K_XL/DeepSeek-V4.1-Flash-1017-UD-Q4_K_XL-00009-of-00009.gguf
+      size: 9165923392
+      sha256: c21ad6105a780bc2f44eb7dd41f9b1a1efb4e8ec87618f60b733bc2652bd2ffe
+    - path: engram/DeepSeek-V4.1-Flash-1017-engram-Q6_K.gguf_file
+      size: 161284798692
+      sha256: 5c2a5a4aa87c72cecc0fc2a8898cb2b91ab9ae5a61a5c8befe21df1b3db26179
+    - path: engram/README.md
+      size: 3750
+      sha256: 0b4725c046073ce0f6c3514f93bf30f7e870a3e4dfc0a59180e3425a578019b9
+    - path: mmproj-F16.gguf
+      size: 971004064
+      sha256: dad8ad13f1d9a25757e121592d7b4f8ca83620d1172048004998b7c0b964b18e
+    notes: 'Shard 00008 (built-in MXFP8 engram table) deliberately not kept: llama.cpp
+      b12233+ misreads MXFP8 tables with no error (engram/README.md). Must run with
+      --ple engram/DeepSeek-V4.1-Flash-1017-engram-Q6_K.gguf_file; without it, loading
+      fails because shard 00008 is absent. Needs ~512 GB RAM.'

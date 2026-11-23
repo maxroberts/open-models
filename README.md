@@ -1,0 +1,154 @@
+# open-models
+
+Keep a verified, offline archive of open-weights LLMs, from small utility models to
+frontier-scale ones, and run them locally day to day.
+
+Goals:
+- **Survive losing the internet.** Every model is pinned to an exact upstream commit and
+  stored with sha256 checksums, so copies can be checked with no network access.
+- **Be useful every day.** A few models live on a fast working drive and run with llama.cpp.
+- **Outlive this laptop.** The archive holds models too big to run here (for future
+  hardware), and is laid out so it can be understood without this repo.
+
+## Where things live
+
+| What | Where | Notes |
+|---|---|---|
+| This repo (code, catalog, docs) | `…/Dropbox/AI/open-models` | Small; synced by Dropbox. `.venv` is marked Dropbox-ignored. |
+| **Archive store**: every model | `/Volumes/Starfish_Prime/model-storage` | The copy recovery starts from. Download logs in `logs/`. |
+| **Working store**: models runnable here | `/Volumes/BackUp_T7/lm-storage` | Fast SSD; outside Dropbox on purpose. |
+
+Override either store with `OPEN_MODELS_ARCHIVE` / `OPEN_MODELS_WORKING`.
+Model weights must never be put inside the Dropbox folder.
+
+## What's in the catalog
+
+26 models, about 1.5 TB, in four hardware tiers. Each model also has a role: chat, code
+or embedding. Which tier a model is in decides where it lives:
+
+| Tier | Runs on | Stored on |
+|---|---|---|
+| `edge` | CPU only, <= ~4 GB RAM (Raspberry Pi, 2012 MacBook Air) | T7 + archive |
+| `utility` | this 16 GB M2 | T7 + archive |
+| `mid` | ~24-128 GB machines | archive only |
+| `frontier` | ~256 GB+ (GLM-5.3, GLM-5.3 Flash, DeepSeek V4.1 Flash) | archive only |
+
+Why each model was chosen, and what was checked: [docs/MODELS.md](docs/MODELS.md).
+It also covers how close the best model here (GLM-5.3) is to Claude Opus 5.5, and what
+hardware it would take to match Opus 5.5's responsiveness locally.
+The six-month update process: [docs/REFRESH.md](docs/REFRESH.md).
+
+## Setup
+
+Prerequisites: macOS on Apple Silicon, [Homebrew](https://brew.sh), and [uv](https://docs.astral.sh/uv/).
+
+```bash
+brew install llama.cpp          # inference engine (llama-cli, llama-server)
+cd /Volumes/BackUp_T7/Dropbox/AI/open-models
+uv sync --dev                   # creates .venv and installs the `om` command
+xattr -w com.dropbox.ignored 1 .venv   # once, if .venv was just created: keep it out of Dropbox
+uv run pytest                   # should pass
+```
+
+One-time store setup: the T7's top folder is owned by `root`, so create the working
+store once with
+`sudo mkdir /Volumes/BackUp_T7/lm-storage && sudo chown "$USER":staff /Volumes/BackUp_T7/lm-storage`.
+The archive folder on Starfish_Prime is created automatically.
+
+No Hugging Face account is needed for public models. For gated models, or to avoid
+rate limits, set `HF_TOKEN` or run `uvx hf auth login`.
+
+## Usage
+
+```bash
+uv run om list                          # catalog, tiers, sizes, which store has each model
+uv run om fetch qwen3-0.6b-q8           # download into the archive, verified
+uv run om sync                          # put edge/utility models on the T7, remove others
+uv run om verify                        # hash-check every copy in both stores
+uv run om stage / unstage <id>          # manual override of sync for one model
+
+# Chat with a model (uses the working copy if staged, else the archive copy)
+llama-cli -m "$(uv run om path qwen3.5-9b-q4)"
+
+# Check every model runnable here loads and answers (prints reply + tokens/s)
+scripts/smoke_test.sh
+```
+
+Some models need extra flags; check their `notes` in the catalog. Embedding models
+are served with `llama-server --embedding`. Vision models use `--mmproj` with their
+`mmproj-F16.gguf`. DeepSeek V4.1 Flash must be run with `--ple` (see docs/MODELS.md).
+
+Adding a model (full process in docs/REFRESH.md):
+
+```bash
+uv run om pin Qwen/Qwen3-0.6B-GGUF --id qwen3-0.6b-q8 --include "*Q8_0.gguf" LICENSE README.md \
+    --tier edge --role chat --format gguf --append    # writes the entry into the catalog
+uv run om fetch qwen3-0.6b-q8 && uv run om sync
+```
+
+## Codebase architecture
+
+```
+catalog/models.yaml      what we keep: pinned repo + revision, tier, role, pinned date,
+                         files with size and sha256
+src/open_models/
+  config.py              store and catalog locations (env-overridable)
+  catalog.py             load and strictly validate the catalog; tier -> placement policy;
+                         append new entries without losing comments
+  store.py               on-disk layout, fast size check, sha256 verify, verified copy
+  fetch.py               Hugging Face download (with free-space check) and `pin`
+                         (the only network code)
+  cli.py                 the `om` command, built on the modules above
+docs/MODELS.md           why each model was chosen; compatibility findings; sources
+docs/REFRESH.md          six-month refresh checklist
+scripts/smoke_test.sh    run edge/utility (or given) models once via llama.cpp
+tests/                   pytest; temporary stores, fake downloads, no network
+```
+
+**Flow.** `om pin --append` asks Hugging Face for a repo's files and adds a catalog
+entry → `om fetch` downloads exactly those files at the pinned commit into the archive
+and checks every sha256 → `om sync` copies edge/utility models to the working store
+(again checked) and removes anything that doesn't belong there → llama.cpp runs the
+file `om path` prints.
+
+**Key design decisions.**
+- *The catalog is the source of truth* and lives in git; stores hold only files. Each
+  model folder also gets a `model.yaml` copy of its entry, so a store makes sense on
+  its own during recovery.
+- *Pin commits, not branches.* `revision` must be a full commit hash, so an upstream
+  change can't silently alter what we archived.
+- *Two checks.* `om list` / `status` compare file sizes only (instant); `om verify`
+  reads and hashes every byte (slow for big models) and is the only real integrity check.
+- *Placement follows tier.* `catalog.WORKING_TIERS` (edge, utility) is the whole policy;
+  `om sync` enforces it. It never deletes a working copy unless the archive copy is
+  present, and never touches folders the catalog doesn't know.
+- *Stale catalogs are flagged.* `om list` warns when the newest `pinned` date is over
+  180 days old.
+- *Writes are all-or-nothing per file.* Copies go to `*.partial` and are renamed only
+  after the hash matches; a failed download never gets a `model.yaml`.
+- *llama.cpp + GGUF* is the runtime: one engine for Mac, NVIDIA, and plain CPU.
+  `safetensors` and `mlx` are allowed catalog formats but no tooling targets them yet.
+
+Store layout: `<store>/models/<id>/<files…>` plus `model.yaml`, and Hugging Face's
+download bookkeeping in `<id>/.cache/huggingface/` (archive only; safe to delete).
+
+## Known gaps
+
+These are planned for later stages:
+- **Runtimes are not archived yet.** llama.cpp comes from Homebrew and Python packages
+  from PyPI, so a rebuild still needs the internet (Stage 2).
+- **Models only in the archive have a single copy.** HFS+ does not detect bit rot. Run
+  `om verify` regularly. A second archive drive and scheduled checks are planned (Stage 4).
+- **The repo is not mirrored into the archive yet** (Stage 4).
+- **No serving layer or model switching yet.** You run llama.cpp by hand (Stage 5).
+- `om unstage` checks only that the archive files exist at the right sizes, not their hashes.
+- `om path` returns the first model `.gguf` in path order (skipping `mmproj` vision
+  adapters), which is shard 00001 for split models. It does not add the extra flags
+  some models need (`--mmproj`, `--ple`, `--embedding`); see each entry's `notes`.
+- **Nothing in the frontier or mid tiers has been run.** They need hardware we don't
+  have yet; only their downloads and hashes are verified.
+- **The original Raspberry Pi Model B (ARMv6) and the 2012 MacBook Air are untested.**
+  Both need their own llama.cpp builds (Stage 2).
+- Retiring a model is manual (docs/REFRESH.md step 6).
+- **TODO (deferred):** the archive has no NVFP4 build of GLM-5.3 (`nvidia/GLM-5.3-NVFP4`,
+  464 GB), which the fast 8-GPU route in docs/MODELS.md needs. Only the GGUF builds are kept.
