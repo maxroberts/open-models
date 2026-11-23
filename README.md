@@ -16,6 +16,7 @@ Goals:
 |---|---|---|
 | This repo (code, catalog, docs) | `…/Dropbox/AI/open-models` | Small; synced by Dropbox. `.venv` is marked Dropbox-ignored. |
 | **Archive store**: every model | `/Volumes/Starfish_Prime/model-storage` | The copy recovery starts from. Download logs in `logs/`. |
+| **Runtime archive**: software to rebuild offline | `/Volumes/Starfish_Prime/model-storage/runtimes` | llama.cpp source and a build for this Mac, cmake, uv, Python, wheels. See [docs/OFFLINE.md](docs/OFFLINE.md). |
 | **Working store**: models runnable here | `/Volumes/BackUp_T7/lm-storage` | Fast SSD; outside Dropbox on purpose. |
 
 Override either store with `OPEN_MODELS_ARCHIVE` / `OPEN_MODELS_WORKING`.
@@ -41,6 +42,7 @@ The six-month update process: [docs/REFRESH.md](docs/REFRESH.md).
 ## Setup
 
 Prerequisites: macOS on Apple Silicon, [Homebrew](https://brew.sh), and [uv](https://docs.astral.sh/uv/).
+Without internet, follow [docs/OFFLINE.md](docs/OFFLINE.md) instead.
 
 ```bash
 brew install llama.cpp          # inference engine (llama-cli, llama-server)
@@ -72,7 +74,14 @@ llama-cli -m "$(uv run om path qwen3.5-9b-q4)"
 
 # Check every model runnable here loads and answers (prints reply + tokens/s)
 scripts/smoke_test.sh
+
+# Archive the software needed to rebuild offline, then prove it works with no network
+scripts/archive_runtimes.sh
+scripts/offline_check.sh
 ```
+
+Rebuilding on a new or offline machine (this Mac, a 2012 MacBook Air, a Raspberry Pi
+4/5 or an original Pi) is described in [docs/OFFLINE.md](docs/OFFLINE.md).
 
 Some models need extra flags; check their `notes` in the catalog. Embedding models
 are served with `llama-server --embedding`. Vision models use `--mmproj` with their
@@ -91,6 +100,8 @@ uv run om fetch qwen3-0.6b-q8 && uv run om sync
 ```
 catalog/models.yaml      what we keep: pinned repo + revision, tier, role, pinned date,
                          files with size and sha256
+runtimes/manifest.tsv    pinned upstream software files (url + sha256) for the offline
+                         runtime archive
 src/open_models/
   config.py              store and catalog locations (env-overridable)
   catalog.py             load and strictly validate the catalog; tier -> placement policy;
@@ -101,7 +112,13 @@ src/open_models/
   cli.py                 the `om` command, built on the modules above
 docs/MODELS.md           why each model was chosen; compatibility findings; sources
 docs/REFRESH.md          six-month refresh checklist
+docs/OFFLINE.md          rebuilding from the archive without internet, per target machine
 scripts/smoke_test.sh    run edge/utility (or given) models once via llama.cpp
+scripts/archive_runtimes.sh   fill <archive>/runtimes: manifest downloads, per-target
+                         wheelhouses from uv.lock, llama.cpp build for this Mac, SHA256SUMS
+scripts/build_llama.sh   build llama.cpp from the archived source for one target, offline
+scripts/install_om_offline.sh  install `om` from the archived uv, Python and wheels
+scripts/offline_check.sh run the offline rebuild on this Mac in a no-network sandbox
 tests/                   pytest; temporary stores, fake downloads, no network
 ```
 
@@ -110,6 +127,12 @@ entry → `om fetch` downloads exactly those files at the pinned commit into the
 and checks every sha256 → `om sync` copies edge/utility models to the working store
 (again checked) and removes anything that doesn't belong there → llama.cpp runs the
 file `om path` prints.
+
+**Offline runtimes** (separate from `om`, in shell scripts). `archive_runtimes.sh` reads
+`runtimes/manifest.tsv` and uv.lock and fills `<archive>/runtimes/`. The
+`build_llama.sh` and `install_om_offline.sh` scripts use only that folder, and
+`offline_check.sh` runs both with networking blocked to prove it. Copies of the scripts
+and docs/OFFLINE.md are kept in `<archive>/runtimes/tools/`.
 
 **Key design decisions.**
 - *The catalog is the source of truth* and lives in git; stores hold only files. Each
@@ -128,6 +151,10 @@ file `om path` prints.
   after the hash matches; a failed download never gets a `model.yaml`.
 - *llama.cpp + GGUF* is the runtime: one engine for Mac, NVIDIA, and plain CPU.
   `safetensors` and `mlx` are allowed catalog formats but no tooling targets them yet.
+- *Archive the runtime with the models.* llama.cpp is archived as source at the exact
+  build the catalog was checked against (12359), plus the prebuilt web UI its build would
+  otherwise download. Only this Mac's build is archived; other machines build their own.
+  Compilers and the OS are assumed, not archived.
 
 Store layout: `<store>/models/<id>/<files…>` plus `model.yaml`, and Hugging Face's
 download bookkeeping in `<id>/.cache/huggingface/` (archive only; safe to delete).
@@ -135,20 +162,27 @@ download bookkeeping in `<id>/.cache/huggingface/` (archive only; safe to delete
 ## Known gaps
 
 These are planned for later stages:
-- **Runtimes are not archived yet.** llama.cpp comes from Homebrew and Python packages
-  from PyPI, so a rebuild still needs the internet (Stage 2).
+- **Day-to-day use still runs Homebrew's llama.cpp,** not the archived build. Both are
+  build 12359. Updating Homebrew without rerunning `scripts/archive_runtimes.sh` would
+  make them differ.
+- **The offline rebuild is proven only on this Mac.** The 2012 MacBook Air and both
+  Raspberry Pi paths are archived but untested (docs/OFFLINE.md).
+- **`om verify` does not check the runtime archive.** Use
+  `shasum -a 256 -c --quiet SHA256SUMS` in `<archive>/runtimes/`.
 - **Models only in the archive have a single copy.** HFS+ does not detect bit rot. Run
   `om verify` regularly. A second archive drive and scheduled checks are planned (Stage 4).
 - **The repo is not mirrored into the archive yet** (Stage 4).
 - **No serving layer or model switching yet.** You run llama.cpp by hand (Stage 5).
+  Stage 5 will also decide whether to use Ollama, after benchmarking it against
+  llama.cpp's `llama-server` on the same models.
 - `om unstage` checks only that the archive files exist at the right sizes, not their hashes.
 - `om path` returns the first model `.gguf` in path order (skipping `mmproj` vision
   adapters), which is shard 00001 for split models. It does not add the extra flags
   some models need (`--mmproj`, `--ple`, `--embedding`); see each entry's `notes`.
 - **Nothing in the frontier or mid tiers has been run.** They need hardware we don't
   have yet; only their downloads and hashes are verified.
-- **The original Raspberry Pi Model B (ARMv6) and the 2012 MacBook Air are untested.**
-  Both need their own llama.cpp builds (Stage 2).
+- **No model has been run on the original Raspberry Pi Model B (ARMv6) or the 2012
+  MacBook Air.** Their software is archived, but nothing has been built there yet.
 - Retiring a model is manual (docs/REFRESH.md step 6).
 - **TODO (deferred):** the archive has no NVFP4 build of GLM-5.3 (`nvidia/GLM-5.3-NVFP4`,
   464 GB), which the fast 8-GPU route in docs/MODELS.md needs. Only the GGUF builds are kept.

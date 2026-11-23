@@ -11,6 +11,8 @@ world-class open models even with no internet, from utility models up to frontie
   with `PYTHONUNBUFFERED=1 HF_HUB_DISABLE_PROGRESS_BARS=1`; judge progress from the log
 - Run a model: `llama-cli -m "$(uv run om path <id>)"` (llama.cpp from Homebrew)
 - Smoke-test runnable models: `scripts/smoke_test.sh [ids]`
+- Offline runtimes: `scripts/archive_runtimes.sh` then `scripts/offline_check.sh` (docs/OFFLINE.md).
+  Never `rm -rf` inside the archive; rebuild llama.cpp in place with build_llama.sh
 
 ## Storage (decided with the user)
 - Archive (everything, incl. later runtimes and a repo mirror): `/Volumes/Starfish_Prime/model-storage` (4 TB, HFS+, USB)
@@ -30,8 +32,16 @@ Verify claims against Hugging Face repos, not SEO "best LLM" pages. Check each G
 
 ## Plan (one stage at a time, pause for review after each)
 1. Skeleton, catalog, stores, one model end to end: done
-2. Archive runtimes offline (llama.cpp source/builds, Python wheels, uv); prove offline rebuild
+2. Archive runtimes offline: done (2026-11-23). `scripts/archive_runtimes.sh` fills
+   `<archive>/runtimes` (779 MB); `scripts/offline_check.sh` passed in a no-network sandbox.
+   Only macos-arm64 is built/tested; the other 3 targets are archived as source + wheels
 3. Research and fill the catalog by tier: done (Nov 2026); downloads may still be running
 4. Integrity + backups: scheduled `om verify`, second archive copy, repo mirror into archive
 5. Serving: OpenAI-compatible server, model switching (an earlier Ollama/Open WebUI/MCP
    setup is in `../local llm project.zip`, possibly reusable)
+   - Decide here whether to use Ollama (Homebrew), alongside or instead of llama-server
+     (user's decision, 2026-11-23). Ollama is not installed yet. Benchmark both on the same
+     edge/utility models: generation tok/s, prefill tok/s, time to first token, load time,
+     memory use, and output sanity. Also check which catalog models Ollama can import and
+     run (architectures, sharded files, --ple/mmproj), duplicate storage (set OLLAMA_MODELS
+     to the T7), and whether Ollama would then need archiving for offline use (Stage 2).

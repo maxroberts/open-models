@@ -19,6 +19,9 @@ more than 180 days old. Next refresh due: **May 2027**.
    - Read the GGUF README for minimum llama.cpp builds, special flags, or files to skip
      (see the DeepSeek engram case in MODELS.md).
    - Update llama.cpp first (`brew upgrade llama.cpp`) if new models need it.
+     If you do, archive the matching source too: update `LLAMA_BUILD`/`LLAMA_COMMIT`
+     in `scripts/build_llama.sh` and the llama.cpp lines in `runtimes/manifest.tsv`
+     (docs/OFFLINE.md, "Keeping it current").
 
 3. **Decide, per tier: keep, replace, or add.**
    - Edge and utility models are small: keep superseded ones unless space is tight.
@@ -41,6 +44,9 @@ more than 180 days old. Next refresh due: **May 2027**.
    ```
    Smoke-test the runnable models: `scripts/smoke_test.sh` (all edge + utility) or
    `scripts/smoke_test.sh <ids...>`; read the printed replies for sanity.
+   Refresh the offline runtime archive and prove it still works:
+   `scripts/archive_runtimes.sh && scripts/offline_check.sh` (needed after any change to
+   llama.cpp, `uv.lock` or `runtimes/manifest.tsv`).
 
 6. **Retire replaced models.**
    - Delete the model's folder from `/Volumes/Starfish_Prime/model-storage/models/<id>`.
