@@ -2,9 +2,10 @@
 
 Stage 5a. Should open-models serve models through Ollama (Homebrew), through llama.cpp's
 own `llama-server`, or both? This compares them on this Mac with the catalog's own files.
-**Status: compatibility results are final. Speed results are preliminary**, because the
-Mac was short of memory during the main run (see "Caveat" below). A rerun with memory
-freed up is pending.
+**Decision (2026-11-24): llama-server**, now run by `om serve` (Stage 5b; see "Using the
+chat from another computer"). Compatibility results are final. Speed results are
+preliminary, because the Mac was short of memory during the main run (see "Caveat"
+below). A rerun with memory freed up is pending.
 
 ## Short answer
 
@@ -14,19 +15,18 @@ freed up is pending.
   matched settings, the two servers come out about the same wherever the Mac had free
   memory. They are the same engine, and differences come from the llama.cpp build and
   from Ollama's own defaults and chat templates.
-- **Every working-store model runs on Ollama**, including embeddings and vision. On
-  llama-server, the benchmarked models ran; the rest are 5b's job. The differences are
-  elsewhere:
+- **Every working-store model runs on both**, including embeddings and vision (for
+  llama-server, through `om serve`; tested in 5b). The differences are elsewhere:
   - **Ollama** makes its own copy of every model (42 GB for the 16 working models) and
     cannot pass extra llama.cpp flags. So DeepSeek V4.1, which needs `--ple`, cannot
     run on it.
   - **llama-server** is the build we archive and can rebuild offline on all four target
     machines (docs/OFFLINE.md). It loads files directly from the `om` stores and accepts
     any flag.
-- **Preliminary recommendation: serve with llama-server; Ollama is optional.**
-  llama-server's built-in "router" mode (`--models-dir`, `--models-preset`) can switch
-  models on demand, which is the main thing Ollama adds. That still has to be tried in
-  5b. Keep Ollama only if a tool you want needs Ollama's own API. If you do, the Ollama
+- **Recommendation, adopted: serve with llama-server; Ollama is optional.**
+  llama-server's built-in "router" mode switches models on demand, which is the main
+  thing Ollama adds; `om serve` uses it. Keep Ollama only if a tool you want needs
+  Ollama's own API. If you do, the Ollama
   binaries would also need archiving for offline use.
 
 ## Setup
@@ -137,39 +137,69 @@ cases go into 5b's tests.
 
 ## Using the chat from another computer
 
-Until 5b adds `om serve` and a login service, use `scripts/serve.sh`:
+`om serve` (Stage 5b) runs llama-server in router mode over the working store, and
+`om service` makes it start at login:
 
 ```bash
-scripts/serve.sh start     # start in the background; prints the address
-scripts/serve.sh status    # running? which address, which model is loaded
-scripts/serve.sh stop      # or: restart
+om service install     # start now and at every login; restarts it if it stops
+om service status      # loaded? running? answering?
+om service restart     # e.g. after `om sync` adds or removes models
+om service uninstall   # stop, and don't start at login
+om serve               # or run it in the foreground instead (Ctrl-C stops it)
 ```
-
-It runs llama-server in router mode, which lists every working-store model under its
-catalog id and loads the one a request names, one at a time (`--models-max 1`). This is
-the command it runs:
-
-```bash
-llama-server --models-dir /Volumes/BackUp_T7/lm-storage/models --models-max 1 -c 8192 \
-  --host 0.0.0.0 --port 8080 --api-key-file ~/.config/open-models/llama-server.key
-```
-
-It runs detached with `nohup`, so it keeps running after the terminal or Claude session
-that started it closes. It does not survive a restart or logout. The log is
-`/Volumes/BackUp_T7/lm-storage/llama-server.log`. `start` creates the key file if it is
-missing, and refuses to start a second server or one without the working store. `stop`
-only stops llama-server, never another program on the port. Settings such as the port,
-or `OM_SERVE_HOST=127.0.0.1` for this Mac only, are listed in the script's header.
 
 Then open `http://<this Mac's address>:8080` from any computer on the home network
-(`http://192.168.0.50:8080` on 2026-11-24). Tested that day against that network address (from this Mac): the
-page loads, API requests without the key are refused (401), and with the key
-qwen3.5-4b answered correctly.
+(`http://192.168.0.50:8080` on 2026-11-24).
 
-- **The API key** is in `~/.config/open-models/llama-server.key`, readable only by you
-  (created 2026-11-24 with `secrets.token_urlsafe(24)`). Show it with
-  `cat ~/.config/open-models/llama-server.key`. It is not in the repo. To change it,
-  edit the file and restart the server.
+**What `om serve` does.** It writes a model presets file
+(`~/.config/open-models/presets.ini`) generated from the catalog, then replaces itself
+with llama-server:
+
+```bash
+llama-server --models-preset ~/.config/open-models/presets.ini --models-max 1 \
+  --host 0.0.0.0 --port 8080 --api-key-file ~/.config/open-models/llama-server.key \
+  --sleep-idle-seconds 300
+```
+
+- **Models:** every GGUF model complete on the working store, listed under its catalog
+  id. The model a request names is loaded on demand, one at a time (`--models-max 1`).
+- **Per-model flags from the catalog:** a vision adapter (`mmproj`) where the model has
+  one, and `embeddings = true` for embedding models. Without that flag llama-server
+  refuses embedding requests ("Start it with `--embeddings`"; seen on 2026-11-24 with
+  plain `--models-dir`). `om serve --print-presets` shows the file.
+- **Idle unload:** after 300 s with no requests a model is put to sleep, which frees its
+  memory, like Ollama's 5-minute default. The next request reloads it.
+- **Options:** `--host` (`127.0.0.1` = this Mac only), `--port`, `--ctx` (8192 tokens),
+  `--models-max`, `--idle` (seconds, 0 = never). `om service install` takes the same
+  options and passes them to `om serve`.
+- **Model changes:** after `om sync` adds or removes models, run `om service restart` so
+  the presets are regenerated.
+
+Tested 2026-11-24 by running `om serve` (port 18092, 20 s idle) against the real working
+store:
+- requests without the key were refused (401)
+- all 16 models were listed, with qwen3.5-9b-q4 reported as accepting images
+- qwen3.5-4b answered "Paris"
+- embeddinggemma-2 and qwen3-embedding-0.6b returned embeddings (cat~kitten 0.92 / 0.91,
+  cat~tax 0.63 / 0.43, the same as through Ollama)
+- qwen3.5-9b named a red test image "Red"
+- after 20 s idle, qwen3.5-9b's process reported `is_sleeping: true` and its resident
+  memory fell from about 5.5 GB to 56 MB
+
+**The login agent** (`om service install`) is a launchd agent, `com.open-models.serve`, in
+`~/Library/LaunchAgents/`. It runs `om serve` from this repo's `.venv`, restarts it
+whenever it exits, retrying every 30 s, and logs to
+`~/Library/Logs/open-models/serve.log`. If the T7 (working store and repo) isn't mounted
+at login, it keeps retrying until it is. Tested 2026-11-24: `om service install` started
+it on port 8080, `om service status` reported it running and answering, and through it
+qwen3.5-4b answered "Paris" and embeddinggemma-2 returned embeddings. So the agent can
+read the T7, and macOS showed no permission prompt or error. **Not yet tested:** starting
+at login after a restart, and the retry while the T7 is unmounted.
+
+- **The API key** is in `~/.config/open-models/llama-server.key`, readable only by you.
+  `om serve` creates it on first use if it is missing (the current one dates from
+  2026-11-24). Show it with `cat ~/.config/open-models/llama-server.key`. It is not in
+  the repo. To change it, edit the file and run `om service restart`.
 - **First visit from a browser:** the page shows "Server Connection Error: Access
   denied". That is expected. The page has no key yet, and its first request (`/props`)
   is refused. Click the button below the message, paste the key into **API Key**, then
@@ -177,22 +207,24 @@ qwen3.5-4b answered correctly.
   chat. This was confirmed in use on 2026-11-24. Only the page itself and `/health` are
   open without the key; every API call needs it.
 - **Other tools** (Open WebUI, scripts) use the same key as an OpenAI-style bearer token:
-  `Authorization: Bearer <key>`, base URL `http://<address>:8080/v1`.
+  `Authorization: Bearer <key>`, base URL `http://<address>:8080/v1`. Requests name the
+  model by catalog id, e.g. `"model": "qwen3.5-4b-q4"`.
 - **Home network only.** The connection is plain HTTP, so the key is not encrypted in
   transit. Never forward this port to the internet on the router. This Mac's firewall
   was off on 2026-11-24, so nothing else blocks the port.
-- **No network exposure:** `OM_SERVE_HOST=127.0.0.1 scripts/serve.sh start` listens on
-  this Mac only (the key is still required). Then use VS Code's port forwarding (Ports tab) or
-  `ssh -L 8080:localhost:8080 <this Mac>`. Then open `http://localhost:8080` on your
-  own computer.
-- **Limits until 5b:** the server doesn't start at login, so run `scripts/serve.sh start`
-  after a restart. Vision and embedding models load without the
-  flags they need (`--mmproj`, `--embedding`), so image input and embeddings don't work
-  yet.
+- **No network exposure:** `om service install --host 127.0.0.1` listens on this Mac only
+  (the key is still required). Then use VS Code's port forwarding (Ports tab) or
+  `ssh -L 8080:localhost:8080 <this Mac>`, and open `http://localhost:8080` on your own
+  computer.
+- **Not covered:** Ollama's own API (`/api/chat`, `/api/tags`) is not available; tools
+  that only speak it need Ollama. Catalog flags beyond vision and embeddings, such as
+  DeepSeek's `--ple`, aren't generated, because only working-store models are served
+  and none needs one.
 
 ## Current state of this machine
 
 - An API key for the network chat is in `~/.config/open-models/llama-server.key`.
+- The chat server on port 8080 is the `om service` login agent (installed 2026-11-24).
 - Ollama 0.40.18 is installed with Homebrew, but not as a background service. The
   benchmark ran `ollama serve` by hand with the settings above.
 - The 16 working models, plus a vision variant, are imported into

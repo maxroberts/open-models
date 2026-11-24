@@ -10,7 +10,8 @@ world-class open models even with no internet, from utility models up to frontie
 - Long downloads: run in background, log to `/Volumes/Starfish_Prime/model-storage/logs/`,
   with `PYTHONUNBUFFERED=1 HF_HUB_DISABLE_PROGRESS_BARS=1`; judge progress from the log
 - Run a model: `llama-cli -m "$(uv run om path <id>)"` (llama.cpp from Homebrew)
-- Network chat server: `scripts/serve.sh start|status|stop|restart` (docs/SERVING.md)
+- Network chat server: `om serve` (foreground) / `om service install|status|restart|uninstall`
+  (launchd login agent); docs/SERVING.md
 - Smoke-test runnable models: `scripts/smoke_test.sh [ids]`
 - Offline runtimes: `scripts/archive_runtimes.sh` then `scripts/offline_check.sh` (docs/OFFLINE.md).
 - `git push` runs `scripts/mirror_repo.sh` (githooks/pre-push; `core.hooksPath` set in this
@@ -53,13 +54,16 @@ Verify claims against Hugging Face repos, not SEO "best LLM" pages. Check each G
      at /Volumes/BackUp_T7/lm-storage/ollama (42 GB, `om-<id>`).
    - User chose llama-server (2026-11-24), provided it can match Ollama's features.
      Missing vs Ollama: Ollama's native /api/* endpoints (ask whether any tool needs them).
-     Network chat: `scripts/serve.sh` (docs/SERVING.md, "Using the chat from another
+     Network chat: `om serve` / `om service` (docs/SERVING.md, "Using the chat from another
      computer"): router mode on 0.0.0.0:8080, --api-key-file ~/.config/open-models/llama-server.key.
      User works remotely (VS Code Remote-SSH from another machine on the LAN).
-   - 5b plan (not started): `om serve` generating a --models-preset INI from the catalog
-     (mmproj/embedding/--ple flags), launchd service at login with the network + key
-     setup, idle unload, tests that every working model loads via the router, optionally
-     Open WebUI and the old MCP tools; then remove Ollama + its 42 GB store if unneeded.
+   - 5b (2026-11-24): `om serve` (src/open_models/serve.py) generates a presets INI from
+     the catalog (mmproj, embeddings) and execs llama-server router mode with idle unload;
+     tested live. `om service` (launchd agent com.open-models.serve) installed by the user
+     2026-11-24 and serving port 8080 (Claude's permission check blocks Claude from
+     installing it). Untested: start at login after a restart; retry while the T7 is
+     unmounted. scripts/serve.sh removed. Still open: optionally Open WebUI / old MCP
+     tools, then remove Ollama + its 42 GB store if unneeded.
    - Original 5a brief: decide whether to use Ollama (Homebrew), alongside or instead
      of llama-server (user's decision, 2026-11-23). Benchmark both on the same
      edge/utility models: generation tok/s, prefill tok/s, time to first token, load time,

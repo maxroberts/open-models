@@ -90,19 +90,22 @@ scripts/mirror_repo.sh
 Rebuilding on a new or offline machine (this Mac, a 2012 MacBook Air, a Raspberry Pi
 4/5 or an original Pi) is described in [docs/OFFLINE.md](docs/OFFLINE.md).
 
-Some models need extra flags; check their `notes` in the catalog. Embedding models
-are served with `llama-server --embedding`. Vision models use `--mmproj` with their
-`mmproj-F16.gguf`. DeepSeek V4.1 Flash must be run with `--ple` (see docs/MODELS.md).
+When you run llama.cpp by hand, some models need extra flags (`om serve` adds the first
+two itself); check their `notes` in the catalog. Embedding models need `--embeddings`.
+Vision models use `--mmproj` with their `mmproj-F16.gguf`. DeepSeek V4.1 Flash must be
+run with `--ple` (see docs/MODELS.md).
 
 Chat with the working models from any computer on the home network (llama-server's web
-page, protected by an API key):
+page, protected by an API key), or use them from other tools via its OpenAI-style API:
 
 ```bash
-scripts/serve.sh start      # also: status, stop, restart
+uv run om service install   # serve now and at every login (also: status, restart, uninstall)
+uv run om serve             # or run the server in the foreground
 ```
 
 The first visit from a browser asks for the key; see "Using the chat from another
-computer" in [docs/SERVING.md](docs/SERVING.md). It doesn't start at login yet (Stage 5b).
+computer" in [docs/SERVING.md](docs/SERVING.md). `om serve` adds the vision and
+embedding flags from the catalog, and unloads a model after 5 idle minutes.
 
 Adding a model (full process in docs/REFRESH.md):
 
@@ -126,6 +129,8 @@ src/open_models/
   store.py               on-disk layout, fast size check, sha256 verify, verified copy
   fetch.py               Hugging Face download (with free-space check) and `pin`
                          (the only network code)
+  serve.py               `om serve` / `om service`: model presets from the catalog,
+                         llama-server router command line, launchd login agent
   cli.py                 the `om` command, built on the modules above
 docs/MODELS.md           why each model was chosen; compatibility findings; sources
 docs/REFRESH.md          six-month refresh checklist
@@ -142,12 +147,11 @@ scripts/mirror_repo.sh   copy the repo into <archive>/repo: git bundle + snapsho
 githooks/pre-push        runs mirror_repo.sh on every `git push`; warns but never blocks
                          the push (enable with `git config core.hooksPath githooks`)
 scripts/bench_serving.py benchmark llama-server vs Ollama on the same catalog models
-scripts/serve.sh         start/stop/status the network chat server (llama-server router
-                         mode over the working store, API key); stand-in for `om serve`
 tests/                   pytest; temporary stores, fake downloads, no network;
                          test_mirror_repo.py runs mirror_repo.sh on a throwaway git repo;
                          test_bench_serving.py checks the benchmark's stream parsing;
-                         test_serve.py runs serve.sh against a fake llama-server;
+                         test_serve.py checks presets, key, command line and the launchd
+                         agent definition, and runs `om serve` with a fake llama-server;
                          test_pre_push_hook.py pushes to a local bare repo with the hook on
 ```
 
@@ -155,7 +159,8 @@ tests/                   pytest; temporary stores, fake downloads, no network;
 entry → `om fetch` downloads exactly those files at the pinned commit into the archive
 and checks every sha256 → `om sync` copies edge/utility models to the working store
 (again checked) and removes anything that doesn't belong there → llama.cpp runs the
-file `om path` prints.
+file `om path` prints, or `om serve` serves every working-store model on the network
+(presets generated from the catalog, started at login by `om service`).
 
 **Offline runtimes** (separate from `om`, in shell scripts). `archive_runtimes.sh` reads
 `runtimes/manifest.tsv` and uv.lock and fills `<archive>/runtimes/`. The
@@ -182,6 +187,10 @@ and repo) is self-contained.
   after the hash matches; a failed download never gets a `model.yaml`.
 - *llama.cpp + GGUF* is the runtime: one engine for Mac, NVIDIA, and plain CPU.
   `safetensors` and `mlx` are allowed catalog formats but no tooling targets them yet.
+- *Serve with llama-server, not Ollama* (docs/SERVING.md). Ollama wraps the same engine
+  but copies every model and can't take per-model flags; llama-server is already
+  archived and reads the stores in place. Its router mode supplies model switching and
+  idle unloading.
 - *Archive the runtime with the models.* llama.cpp is archived as source at the exact
   build the catalog was checked against (12359), plus the prebuilt web UI its build would
   otherwise download. Only this Mac's build is archived; other machines build their own.
@@ -212,14 +221,10 @@ These are planned for later stages:
   and holds committed work only. Commits that aren't pushed aren't mirrored, and a push
   made while the archive drive is unplugged skips the mirror with a warning. The hook
   only runs in clones where `core.hooksPath` is set.
-- **No `om serve` yet.** `scripts/serve.sh` starts llama-server's router mode by hand
-  (docs/SERVING.md); it doesn't start at login, and vision and embedding models run
-  without their flags. Stage 5a
-  compared Ollama with llama-server (docs/SERVING.md). They perform alike, since Ollama
-  runs a bundled llama-server, but Ollama copies every model and can't run DeepSeek
-  (`--ple`). The preliminary recommendation is llama-server's router mode, to be built
-  and tested in 5b. The speed numbers were taken under heavy memory pressure and need a
-  rerun with apps closed.
+- **`om service` is only partly tested.** Installing it, serving through it and reading
+  the T7 from it all work (docs/SERVING.md). Starting at login after a restart, and its
+  retry while the T7 is unmounted, have not been tried. Ollama's own API (`/api/*`) is not provided. The 5a speed numbers were
+  taken under heavy memory pressure and need a rerun with apps closed.
 - `om unstage` checks only that the archive files exist at the right sizes, not their hashes.
 - `om path` returns the first model `.gguf` in path order (skipping `mmproj` vision
   adapters), which is shard 00001 for split models. It does not add the extra flags

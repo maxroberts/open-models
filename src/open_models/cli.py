@@ -23,6 +23,11 @@ Details (each subcommand maps to one `cmd_*` function below):
 - `om path ID`              print the path llama.cpp should load: the first model
                             .gguf in path order, skipping `mmproj` vision adapters (so
                             shard 00001 for split models); working store preferred
+- `om serve [opts]`         serve every working-store model over the network with
+                            llama-server's router mode (presets generated from the
+                            catalog, API key; see `serve.py`); runs in the foreground
+- `om service ACTION`       install / uninstall / restart / status the launchd agent that
+                            runs `om serve` at login and restarts it if it exits
 - `om pin REPO ...`         print a new catalog entry as YAML, or `--append` it to the catalog
 Stores come from `config` (env overrides: OPEN_MODELS_ARCHIVE / OPEN_MODELS_WORKING);
 `--catalog` overrides the catalog path.
@@ -30,12 +35,16 @@ Stores come from `config` (env overrides: OPEN_MODELS_ARCHIVE / OPEN_MODELS_WORK
 
 import argparse
 import datetime
+import os
+import plistlib
+import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 
 import yaml
 
-from . import config
+from . import config, serve
 from .catalog import FORMATS, ROLES, TIERS, Model, append_entry, load_catalog
 from .store import MISSING, PRESENT, Store, copy_model
 
@@ -172,15 +181,112 @@ def cmd_unstage(models, args) -> int:
 def cmd_path(models, args) -> int:
     """Print the main .gguf path of one model, preferring the working store."""
     m = _select(models, [args.id])[0]
-    ggufs = sorted(f.path for f in m.files if f.path.endswith(".gguf") and "mmproj" not in f.path.lower())
-    if not ggufs:
+    gguf = serve.main_gguf(m)
+    if not gguf:
         sys.exit(f"{m.id}: no model .gguf files")
     archive, working = _stores()
     for store in (working, archive):  # the fast SSD copy first
         if store.status(m) == PRESENT:
-            print(store.model_dir(m) / ggufs[0])
+            print(store.model_dir(m) / gguf)
             return 0
     sys.exit(f"{m.id}: not present in either store (run `om fetch {m.id}`)")
+
+
+def cmd_serve(models, args) -> int:
+    """Write the presets file and replace this process with llama-server in router mode.
+
+    Serves every GGUF model complete on the working store. Exits 1 (without starting
+    anything) if the working store isn't mounted, holds no models, or llama-server isn't
+    found. With --print-presets, only prints the presets file.
+    """
+    _, working = _stores()
+    if not (working.root / "models").is_dir():
+        print(f"working store not found: {working.root / 'models'} (is the drive mounted?)",
+              file=sys.stderr)
+        return 1
+    served = serve.served_models(models, working)
+    if not served:
+        print("no models on the working store (run `om sync`)", file=sys.stderr)
+        return 1
+    text = serve.presets_ini(served, working, args.ctx)
+    if args.print_presets:
+        print(text)
+        return 0
+    cfg = serve.config_dir()
+    cfg.mkdir(parents=True, exist_ok=True)
+    presets, key = cfg / "presets.ini", cfg / "llama-server.key"
+    presets.write_text(text)
+    if serve.ensure_key(key):
+        print(f"created a new API key in {key}")
+    cmd = serve.server_command(presets, key, args.host, args.port, args.models_max, args.idle)
+    print(f"om serve: {len(served)} models on http://{args.host}:{args.port} "
+          f"(API key in {key}); {' '.join(cmd)}", flush=True)
+    try:
+        os.execvp(cmd[0], cmd)  # does not return on success
+    except FileNotFoundError:
+        print(f"{cmd[0]} not found (brew install llama.cpp, or set LLAMA_SERVER)", file=sys.stderr)
+        return 1
+
+
+def _launchctl(*args) -> subprocess.CompletedProcess:
+    """Run launchctl with `args`; return the finished process (never raises on failure)."""
+    return subprocess.run(["launchctl", *args], capture_output=True, text=True)
+
+
+def cmd_service(models, args) -> int:
+    """Install, uninstall, restart or check the login agent that runs `om serve` (launchd)."""
+    domain = f"gui/{os.getuid()}"
+    target = f"{domain}/{serve.LABEL}"
+    plist = Path.home() / "Library" / "LaunchAgents" / f"{serve.LABEL}.plist"
+    log = Path.home() / "Library" / "Logs" / "open-models" / "serve.log"
+
+    if args.action == "install":
+        om = Path(sys.executable).parent / "om"
+        serve_args = ["--host", args.host, "--port", str(args.port), "--ctx", str(args.ctx),
+                      "--models-max", str(args.models_max), "--idle", str(args.idle)]
+        _launchctl("bootout", target)  # replace any earlier version; fails harmlessly if none
+        log.parent.mkdir(parents=True, exist_ok=True)
+        plist.parent.mkdir(parents=True, exist_ok=True)
+        with open(plist, "wb") as fh:
+            plistlib.dump(serve.launch_agent(om, serve_args, log), fh)
+        r = _launchctl("bootstrap", domain, str(plist))
+        if r.returncode != 0:
+            print(f"launchctl bootstrap failed: {r.stderr.strip()}", file=sys.stderr)
+            return 1
+        print(f"installed {plist}; starts now and at every login. Log: {log}")
+        print("check with: om service status")
+        return 0
+    if args.action == "uninstall":
+        _launchctl("bootout", target)
+        plist.unlink(missing_ok=True)
+        print("uninstalled (stopped, and won't start at login)")
+        return 0
+    if not plist.exists():
+        print("not installed (om service install)")
+        return 1
+    if args.action == "restart":
+        r = _launchctl("kickstart", "-k", target)
+        print("restarted" if r.returncode == 0 else f"restart failed: {r.stderr.strip()}")
+        return r.returncode
+    # status
+    info = _launchctl("print", target)
+    if info.returncode != 0:
+        print(f"installed ({plist}) but not loaded; try: om service install")
+        return 1
+    fields = dict(line.strip().split(" = ", 1) for line in info.stdout.splitlines()
+                  if line.startswith("\t") and " = " in line and line.count("\t") == 1)
+    agent_args = plistlib.loads(plist.read_bytes())["ProgramArguments"]
+    port = agent_args[agent_args.index("--port") + 1]
+    try:
+        urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=2)
+        health = "answering"
+    except OSError as e:
+        health = f"not answering ({e})"
+    print(f"state: {fields.get('state', '?')}, pid: {fields.get('pid', '-')}, "
+          f"last exit code: {fields.get('last exit code', '-')}")
+    print(f"server on port {port}: {health}")
+    print(f"log: {log}")
+    return 0 if health == "answering" else 1
 
 
 def cmd_pin(models, args) -> int:
@@ -224,6 +330,27 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("path", help="print a model's main .gguf path")
     sp.add_argument("id")
     sp.set_defaults(func=cmd_path)
+
+    def serve_options(sp):
+        """Options shared by `serve` and `service install` (which passes them on to serve)."""
+        sp.add_argument("--host", default="0.0.0.0",
+                        help="address to listen on (default: all; 127.0.0.1 = this Mac only)")
+        sp.add_argument("--port", type=int, default=8080)
+        sp.add_argument("--ctx", type=int, default=8192, help="context size per model, tokens")
+        sp.add_argument("--models-max", type=int, default=1, help="models loaded at once")
+        sp.add_argument("--idle", type=int, default=300,
+                        help="unload a model after this many idle seconds (0 = never)")
+
+    sp = sub.add_parser("serve", help="serve the working-store models (llama-server router mode)")
+    serve_options(sp)
+    sp.add_argument("--print-presets", action="store_true",
+                    help="print the generated model presets and exit")
+    sp.set_defaults(func=cmd_serve)
+
+    sp = sub.add_parser("service", help="run `om serve` at login (macOS launchd agent)")
+    sp.add_argument("action", choices=("install", "uninstall", "status", "restart"))
+    serve_options(sp)
+    sp.set_defaults(func=cmd_service)
 
     sp = sub.add_parser("pin", help="make a catalog entry for a Hugging Face repo")
     sp.add_argument("repo", help="e.g. Qwen/Qwen3-0.6B-GGUF")
