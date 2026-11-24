@@ -59,7 +59,8 @@ more than 180 days old. Next refresh due: **May 2027**.
 
 7. **Update the docs.** In MODELS.md, update the tables, the date in the title, and the
    reasoning for every change; then set the next due date at the top of this file.
-   Commit, then copy the repo into the archive: `scripts/mirror_repo.sh`.
+   Commit and push; the push copies the repo into the archive (githooks/pre-push).
+   Without pushing, run `scripts/mirror_repo.sh` instead.
 
 ## Reminder
 

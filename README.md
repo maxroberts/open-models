@@ -16,7 +16,7 @@ Goals:
 |---|---|---|
 | This repo (code, catalog, docs) | `…/Dropbox/AI/open-models` | Small; synced by Dropbox. `.venv` is marked Dropbox-ignored. |
 | **Archive store**: every model | `/Volumes/Starfish_Prime/model-storage` | The copy recovery starts from. Download logs in `logs/`. |
-| **Repo mirror**: this repo's history + snapshot | `/Volumes/Starfish_Prime/model-storage/repo` | Committed work only, refreshed by `scripts/mirror_repo.sh`. |
+| **Repo mirror**: this repo's history + snapshot | `/Volumes/Starfish_Prime/model-storage/repo` | Committed work only, refreshed on every `git push` (hook) or by `scripts/mirror_repo.sh`. |
 | **Runtime archive**: software to rebuild offline | `/Volumes/Starfish_Prime/model-storage/runtimes` | llama.cpp source and a build for this Mac, cmake, uv, Python, wheels. See [docs/OFFLINE.md](docs/OFFLINE.md). |
 | **Working store**: models runnable here | `/Volumes/BackUp_T7/lm-storage` | Fast SSD; outside Dropbox on purpose. |
 | Ollama's own store (Stage 5a test) | `/Volumes/BackUp_T7/lm-storage/ollama` | Ollama's copies of the working models (42 GB), not managed by `om`. See [docs/SERVING.md](docs/SERVING.md). |
@@ -52,6 +52,7 @@ cd /Volumes/BackUp_T7/Dropbox/AI/open-models
 uv sync --dev                   # creates .venv and installs the `om` command
 xattr -w com.dropbox.ignored 1 .venv   # once, if .venv was just created: keep it out of Dropbox
 uv run pytest                   # should pass
+git config core.hooksPath githooks   # once per clone: mirror the repo into the archive on push
 ```
 
 One-time store setup: the T7's top folder is owned by `root`, so create the working
@@ -81,7 +82,8 @@ scripts/smoke_test.sh
 scripts/archive_runtimes.sh
 scripts/offline_check.sh
 
-# After committing: copy the repo (full history + snapshot) into the archive
+# Copy the repo (full history + snapshot) into the archive. Runs by itself on every
+# `git push` (githooks/pre-push); run it by hand to mirror without pushing.
 scripts/mirror_repo.sh
 ```
 
@@ -93,8 +95,14 @@ are served with `llama-server --embedding`. Vision models use `--mmproj` with th
 `mmproj-F16.gguf`. DeepSeek V4.1 Flash must be run with `--ple` (see docs/MODELS.md).
 
 Chat with the working models from any computer on the home network (llama-server's web
-page, protected by an API key): see "Using the chat from another computer" in
-[docs/SERVING.md](docs/SERVING.md). This is a manual start for now; `om serve` is Stage 5b.
+page, protected by an API key):
+
+```bash
+scripts/serve.sh start      # also: status, stop, restart
+```
+
+The first visit from a browser asks for the key; see "Using the chat from another
+computer" in [docs/SERVING.md](docs/SERVING.md). It doesn't start at login yet (Stage 5b).
 
 Adding a model (full process in docs/REFRESH.md):
 
@@ -131,10 +139,16 @@ scripts/build_llama.sh   build llama.cpp from the archived source for one target
 scripts/install_om_offline.sh  install `om` from the archived uv, Python and wheels
 scripts/offline_check.sh run the offline rebuild on this Mac in a no-network sandbox
 scripts/mirror_repo.sh   copy the repo into <archive>/repo: git bundle + snapshot of HEAD
+githooks/pre-push        runs mirror_repo.sh on every `git push`; warns but never blocks
+                         the push (enable with `git config core.hooksPath githooks`)
 scripts/bench_serving.py benchmark llama-server vs Ollama on the same catalog models
+scripts/serve.sh         start/stop/status the network chat server (llama-server router
+                         mode over the working store, API key); stand-in for `om serve`
 tests/                   pytest; temporary stores, fake downloads, no network;
                          test_mirror_repo.py runs mirror_repo.sh on a throwaway git repo;
-                         test_bench_serving.py checks the benchmark's stream parsing
+                         test_bench_serving.py checks the benchmark's stream parsing;
+                         test_serve.py runs serve.sh against a fake llama-server;
+                         test_pre_push_hook.py pushes to a local bare repo with the hook on
 ```
 
 **Flow.** `om pin --append` asks Hugging Face for a repo's files and adds a catalog
@@ -194,10 +208,13 @@ These are planned for later stages:
 - **TODO (deferred, no drive yet):** a second archive drive, with an `om` command to
   mirror the archive to it and repair a bad file from the good copy. Scheduled checks
   are worth adding then, since a check could also repair.
-- **The repo mirror is only as fresh as the last `scripts/mirror_repo.sh` run,** and
-  holds committed work only.
-- **No serving layer yet.** You start llama-server by hand (router mode switches models;
-  see docs/SERVING.md), and it doesn't start at login. Stage 5a
+- **The repo mirror is only as fresh as the last push** (or `scripts/mirror_repo.sh` run),
+  and holds committed work only. Commits that aren't pushed aren't mirrored, and a push
+  made while the archive drive is unplugged skips the mirror with a warning. The hook
+  only runs in clones where `core.hooksPath` is set.
+- **No `om serve` yet.** `scripts/serve.sh` starts llama-server's router mode by hand
+  (docs/SERVING.md); it doesn't start at login, and vision and embedding models run
+  without their flags. Stage 5a
   compared Ollama with llama-server (docs/SERVING.md). They perform alike, since Ollama
   runs a bundled llama-server, but Ollama copies every model and can't run DeepSeek
   (`--ple`). The preliminary recommendation is llama-server's router mode, to be built

@@ -10,9 +10,12 @@ world-class open models even with no internet, from utility models up to frontie
 - Long downloads: run in background, log to `/Volumes/Starfish_Prime/model-storage/logs/`,
   with `PYTHONUNBUFFERED=1 HF_HUB_DISABLE_PROGRESS_BARS=1`; judge progress from the log
 - Run a model: `llama-cli -m "$(uv run om path <id>)"` (llama.cpp from Homebrew)
+- Network chat server: `scripts/serve.sh start|status|stop|restart` (docs/SERVING.md)
 - Smoke-test runnable models: `scripts/smoke_test.sh [ids]`
 - Offline runtimes: `scripts/archive_runtimes.sh` then `scripts/offline_check.sh` (docs/OFFLINE.md).
-- After the user commits: `scripts/mirror_repo.sh` copies the repo into `<archive>/repo`.
+- `git push` runs `scripts/mirror_repo.sh` (githooks/pre-push; `core.hooksPath` set in this
+  clone 2026-11-24), copying the repo into `<archive>/repo`. Run it by hand if the user
+  commits without pushing.
   Never `rm -rf` inside the archive; rebuild llama.cpp in place with build_llama.sh
 
 ## Storage (decided with the user)
@@ -50,8 +53,8 @@ Verify claims against Hugging Face repos, not SEO "best LLM" pages. Check each G
      at /Volumes/BackUp_T7/lm-storage/ollama (42 GB, `om-<id>`).
    - User chose llama-server (2026-11-24), provided it can match Ollama's features.
      Missing vs Ollama: Ollama's native /api/* endpoints (ask whether any tool needs them).
-     Network chat works by hand (docs/SERVING.md, "Using the chat from another computer"):
-     router mode on 0.0.0.0:8080 with --api-key-file ~/.config/open-models/llama-server.key.
+     Network chat: `scripts/serve.sh` (docs/SERVING.md, "Using the chat from another
+     computer"): router mode on 0.0.0.0:8080, --api-key-file ~/.config/open-models/llama-server.key.
      User works remotely (VS Code Remote-SSH from another machine on the LAN).
    - 5b plan (not started): `om serve` generating a --models-preset INI from the catalog
      (mmproj/embedding/--ple flags), launchd service at login with the network + key

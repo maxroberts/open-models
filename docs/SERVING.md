@@ -137,14 +137,29 @@ cases go into 5b's tests.
 
 ## Using the chat from another computer
 
-Until 5b adds `om serve` and a login service, start the server by hand. Router mode
-lists every working-store model under its catalog id and loads the one a request names,
-one at a time (`--models-max 1`):
+Until 5b adds `om serve` and a login service, use `scripts/serve.sh`:
+
+```bash
+scripts/serve.sh start     # start in the background; prints the address
+scripts/serve.sh status    # running? which address, which model is loaded
+scripts/serve.sh stop      # or: restart
+```
+
+It runs llama-server in router mode, which lists every working-store model under its
+catalog id and loads the one a request names, one at a time (`--models-max 1`). This is
+the command it runs:
 
 ```bash
 llama-server --models-dir /Volumes/BackUp_T7/lm-storage/models --models-max 1 -c 8192 \
   --host 0.0.0.0 --port 8080 --api-key-file ~/.config/open-models/llama-server.key
 ```
+
+It runs detached with `nohup`, so it keeps running after the terminal or Claude session
+that started it closes. It does not survive a restart or logout. The log is
+`/Volumes/BackUp_T7/lm-storage/llama-server.log`. `start` creates the key file if it is
+missing, and refuses to start a second server or one without the working store. `stop`
+only stops llama-server, never another program on the port. Settings such as the port,
+or `OM_SERVE_HOST=127.0.0.1` for this Mac only, are listed in the script's header.
 
 Then open `http://<this Mac's address>:8080` from any computer on the home network
 (`http://192.168.0.50:8080` on 2026-11-24). Tested that day against that network address (from this Mac): the
@@ -166,12 +181,12 @@ qwen3.5-4b answered correctly.
 - **Home network only.** The connection is plain HTTP, so the key is not encrypted in
   transit. Never forward this port to the internet on the router. This Mac's firewall
   was off on 2026-11-24, so nothing else blocks the port.
-- **No key, no network exposure:** start the server without `--host`/`--api-key-file`
-  (it then listens on this Mac only) and use VS Code's port forwarding (Ports tab) or
+- **No network exposure:** `OM_SERVE_HOST=127.0.0.1 scripts/serve.sh start` listens on
+  this Mac only (the key is still required). Then use VS Code's port forwarding (Ports tab) or
   `ssh -L 8080:localhost:8080 <this Mac>`. Then open `http://localhost:8080` on your
   own computer.
-- **Limits until 5b:** the server stops when the terminal or session that started it
-  ends, and it doesn't start at login. Vision and embedding models load without the
+- **Limits until 5b:** the server doesn't start at login, so run `scripts/serve.sh start`
+  after a restart. Vision and embedding models load without the
   flags they need (`--mmproj`, `--embedding`), so image input and embeddings don't work
   yet.
 

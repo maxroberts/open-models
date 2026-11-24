@@ -3,8 +3,9 @@
 #
 # Summary: writes the repo's full git history as a bundle, plus a plain snapshot of the
 # latest commit, into <archive>/repo/. Either one is enough to restore open-models
-# without GitHub or Dropbox (docs/OFFLINE.md). Run it after committing; part of the
-# six-month refresh (docs/REFRESH.md step 7). Tested by tests/test_mirror_repo.py.
+# without GitHub or Dropbox (docs/OFFLINE.md). Runs by itself on every `git push` via
+# githooks/pre-push; run it by hand to mirror without pushing. Part of the six-month
+# refresh (docs/REFRESH.md step 7). Tested by tests/test_mirror_repo.py.
 #
 # Details:
 # - open-models.bundle: `git bundle` of every branch and tag. Restore with

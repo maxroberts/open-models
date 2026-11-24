@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Git pre-push hook: copy the repo into the archive (scripts/mirror_repo.sh) on every push.
+#
+# Summary: Git runs this on this machine just before `git push` sends anything, so the
+# archive's repo mirror (<archive>/repo) keeps up with what goes to GitHub without a
+# separate step. Enabled per clone with `git config core.hooksPath githooks` (README,
+# Setup); git does not copy hook settings when cloning.
+#
+# Details:
+# - Never blocks a push: it always exits 0. If the archive isn't mounted, or the mirror
+#   fails, it prints a warning and the push goes ahead; run scripts/mirror_repo.sh by hand
+#   later.
+# - The mirror covers every local branch and tag plus a snapshot of HEAD, i.e. the
+#   committed work being pushed (and any local branches not being pushed). Uncommitted
+#   changes are never mirrored (mirror_repo.sh warns about them).
+# - Archive location: $OPEN_MODELS_ARCHIVE, default /Volumes/Starfish_Prime/model-storage
+#   (the same as mirror_repo.sh). Tested by tests/test_pre_push_hook.py.
+# - Git passes the remote name and URL as arguments and the refs on stdin; this hook
+#   ignores them.
+
+repo=$(git rev-parse --show-toplevel)
+archive=${OPEN_MODELS_ARCHIVE:-/Volumes/Starfish_Prime/model-storage}
+
+if [ ! -d "$archive" ]; then
+  echo "pre-push: archive not mounted ($archive); repo mirror skipped" >&2
+  exit 0
+fi
+if ! out=$("$repo/scripts/mirror_repo.sh" "$repo" 2>&1); then
+  echo "pre-push: repo mirror FAILED (push continues); run scripts/mirror_repo.sh by hand:" >&2
+  echo "$out" | tail -5 >&2
+  exit 0
+fi
+echo "pre-push: $(echo "$out" | tail -1)" >&2
+exit 0
