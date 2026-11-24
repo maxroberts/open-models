@@ -19,6 +19,7 @@ Goals:
 | **Repo mirror**: this repo's history + snapshot | `/Volumes/Starfish_Prime/model-storage/repo` | Committed work only, refreshed by `scripts/mirror_repo.sh`. |
 | **Runtime archive**: software to rebuild offline | `/Volumes/Starfish_Prime/model-storage/runtimes` | llama.cpp source and a build for this Mac, cmake, uv, Python, wheels. See [docs/OFFLINE.md](docs/OFFLINE.md). |
 | **Working store**: models runnable here | `/Volumes/BackUp_T7/lm-storage` | Fast SSD; outside Dropbox on purpose. |
+| Ollama's own store (Stage 5a test) | `/Volumes/BackUp_T7/lm-storage/ollama` | Ollama's copies of the working models (42 GB), not managed by `om`. See [docs/SERVING.md](docs/SERVING.md). |
 
 Override either store with `OPEN_MODELS_ARCHIVE` / `OPEN_MODELS_WORKING`.
 Model weights must never be put inside the Dropbox folder.
@@ -91,6 +92,10 @@ Some models need extra flags; check their `notes` in the catalog. Embedding mode
 are served with `llama-server --embedding`. Vision models use `--mmproj` with their
 `mmproj-F16.gguf`. DeepSeek V4.1 Flash must be run with `--ple` (see docs/MODELS.md).
 
+Chat with the working models from any computer on the home network (llama-server's web
+page, protected by an API key): see "Using the chat from another computer" in
+[docs/SERVING.md](docs/SERVING.md). This is a manual start for now; `om serve` is Stage 5b.
+
 Adding a model (full process in docs/REFRESH.md):
 
 ```bash
@@ -117,6 +122,8 @@ src/open_models/
 docs/MODELS.md           why each model was chosen; compatibility findings; sources
 docs/REFRESH.md          six-month refresh checklist
 docs/OFFLINE.md          rebuilding from the archive without internet, per target machine
+docs/SERVING.md          Ollama vs llama-server: benchmark, compatibility, recommendation
+docs/benchmarks/         raw benchmark results (JSON lines)
 scripts/smoke_test.sh    run edge/utility (or given) models once via llama.cpp
 scripts/archive_runtimes.sh   fill <archive>/runtimes: manifest downloads, per-target
                          wheelhouses from uv.lock, llama.cpp build for this Mac, SHA256SUMS
@@ -124,8 +131,10 @@ scripts/build_llama.sh   build llama.cpp from the archived source for one target
 scripts/install_om_offline.sh  install `om` from the archived uv, Python and wheels
 scripts/offline_check.sh run the offline rebuild on this Mac in a no-network sandbox
 scripts/mirror_repo.sh   copy the repo into <archive>/repo: git bundle + snapshot of HEAD
+scripts/bench_serving.py benchmark llama-server vs Ollama on the same catalog models
 tests/                   pytest; temporary stores, fake downloads, no network;
-                         test_mirror_repo.py runs mirror_repo.sh on a throwaway git repo
+                         test_mirror_repo.py runs mirror_repo.sh on a throwaway git repo;
+                         test_bench_serving.py checks the benchmark's stream parsing
 ```
 
 **Flow.** `om pin --append` asks Hugging Face for a repo's files and adds a catalog
@@ -187,9 +196,13 @@ These are planned for later stages:
   are worth adding then, since a check could also repair.
 - **The repo mirror is only as fresh as the last `scripts/mirror_repo.sh` run,** and
   holds committed work only.
-- **No serving layer or model switching yet.** You run llama.cpp by hand (Stage 5).
-  Stage 5 will also decide whether to use Ollama, after benchmarking it against
-  llama.cpp's `llama-server` on the same models.
+- **No serving layer yet.** You start llama-server by hand (router mode switches models;
+  see docs/SERVING.md), and it doesn't start at login. Stage 5a
+  compared Ollama with llama-server (docs/SERVING.md). They perform alike, since Ollama
+  runs a bundled llama-server, but Ollama copies every model and can't run DeepSeek
+  (`--ple`). The preliminary recommendation is llama-server's router mode, to be built
+  and tested in 5b. The speed numbers were taken under heavy memory pressure and need a
+  rerun with apps closed.
 - `om unstage` checks only that the archive files exist at the right sizes, not their hashes.
 - `om path` returns the first model `.gguf` in path order (skipping `mmproj` vision
   adapters), which is shard 00001 for split models. It does not add the extra flags

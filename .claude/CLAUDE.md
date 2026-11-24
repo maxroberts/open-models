@@ -42,8 +42,23 @@ Verify claims against Hugging Face repos, not SEO "best LLM" pages. Check each G
    TODO) and scheduled checks (add once there is a second copy to repair from).
 5. Serving: OpenAI-compatible server, model switching (an earlier Ollama/Open WebUI/MCP
    setup is in `../local llm project.zip`, possibly reusable)
-   - Decide here whether to use Ollama (Homebrew), alongside or instead of llama-server
-     (user's decision, 2026-11-23). Ollama is not installed yet. Benchmark both on the same
+   - 5a done 2026-11-24 (docs/SERVING.md, scripts/bench_serving.py): Ollama 0.40.18
+     installed via Homebrew (not as a service); it wraps a bundled llama-server (build
+     12651). Preliminary recommendation: llama-server router mode (--models-dir /
+     --models-preset), Ollama optional. User has not decided yet. Speed numbers need a
+     rerun without memory pressure. 16 working models are imported into Ollama's store
+     at /Volumes/BackUp_T7/lm-storage/ollama (42 GB, `om-<id>`).
+   - User chose llama-server (2026-11-24), provided it can match Ollama's features.
+     Missing vs Ollama: Ollama's native /api/* endpoints (ask whether any tool needs them).
+     Network chat works by hand (docs/SERVING.md, "Using the chat from another computer"):
+     router mode on 0.0.0.0:8080 with --api-key-file ~/.config/open-models/llama-server.key.
+     User works remotely (VS Code Remote-SSH from another machine on the LAN).
+   - 5b plan (not started): `om serve` generating a --models-preset INI from the catalog
+     (mmproj/embedding/--ple flags), launchd service at login with the network + key
+     setup, idle unload, tests that every working model loads via the router, optionally
+     Open WebUI and the old MCP tools; then remove Ollama + its 42 GB store if unneeded.
+   - Original 5a brief: decide whether to use Ollama (Homebrew), alongside or instead
+     of llama-server (user's decision, 2026-11-23). Benchmark both on the same
      edge/utility models: generation tok/s, prefill tok/s, time to first token, load time,
      memory use, and output sanity. Also check which catalog models Ollama can import and
      run (architectures, sharded files, --ple/mmproj), duplicate storage (set OLLAMA_MODELS
