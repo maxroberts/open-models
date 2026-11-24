@@ -16,6 +16,7 @@ Goals:
 |---|---|---|
 | This repo (code, catalog, docs) | `…/Dropbox/AI/open-models` | Small; synced by Dropbox. `.venv` is marked Dropbox-ignored. |
 | **Archive store**: every model | `/Volumes/Starfish_Prime/model-storage` | The copy recovery starts from. Download logs in `logs/`. |
+| **Repo mirror**: this repo's history + snapshot | `/Volumes/Starfish_Prime/model-storage/repo` | Committed work only, refreshed by `scripts/mirror_repo.sh`. |
 | **Runtime archive**: software to rebuild offline | `/Volumes/Starfish_Prime/model-storage/runtimes` | llama.cpp source and a build for this Mac, cmake, uv, Python, wheels. See [docs/OFFLINE.md](docs/OFFLINE.md). |
 | **Working store**: models runnable here | `/Volumes/BackUp_T7/lm-storage` | Fast SSD; outside Dropbox on purpose. |
 
@@ -78,6 +79,9 @@ scripts/smoke_test.sh
 # Archive the software needed to rebuild offline, then prove it works with no network
 scripts/archive_runtimes.sh
 scripts/offline_check.sh
+
+# After committing: copy the repo (full history + snapshot) into the archive
+scripts/mirror_repo.sh
 ```
 
 Rebuilding on a new or offline machine (this Mac, a 2012 MacBook Air, a Raspberry Pi
@@ -119,7 +123,9 @@ scripts/archive_runtimes.sh   fill <archive>/runtimes: manifest downloads, per-t
 scripts/build_llama.sh   build llama.cpp from the archived source for one target, offline
 scripts/install_om_offline.sh  install `om` from the archived uv, Python and wheels
 scripts/offline_check.sh run the offline rebuild on this Mac in a no-network sandbox
-tests/                   pytest; temporary stores, fake downloads, no network
+scripts/mirror_repo.sh   copy the repo into <archive>/repo: git bundle + snapshot of HEAD
+tests/                   pytest; temporary stores, fake downloads, no network;
+                         test_mirror_repo.py runs mirror_repo.sh on a throwaway git repo
 ```
 
 **Flow.** `om pin --append` asks Hugging Face for a repo's files and adds a catalog
@@ -132,7 +138,9 @@ file `om path` prints.
 `runtimes/manifest.tsv` and uv.lock and fills `<archive>/runtimes/`. The
 `build_llama.sh` and `install_om_offline.sh` scripts use only that folder, and
 `offline_check.sh` runs both with networking blocked to prove it. Copies of the scripts
-and docs/OFFLINE.md are kept in `<archive>/runtimes/tools/`.
+and docs/OFFLINE.md are kept in `<archive>/runtimes/tools/`. `mirror_repo.sh` puts the
+whole repo, with its git history, in `<archive>/repo/`, so the archive (models, runtimes
+and repo) is self-contained.
 
 **Key design decisions.**
 - *The catalog is the source of truth* and lives in git; stores hold only files. Each
@@ -169,9 +177,16 @@ These are planned for later stages:
   Raspberry Pi paths are archived but untested (docs/OFFLINE.md).
 - **`om verify` does not check the runtime archive.** Use
   `shasum -a 256 -c --quiet SHA256SUMS` in `<archive>/runtimes/`.
-- **Models only in the archive have a single copy.** HFS+ does not detect bit rot. Run
-  `om verify` regularly. A second archive drive and scheduled checks are planned (Stage 4).
-- **The repo is not mirrored into the archive yet** (Stage 4).
+- **Everything in the archive has a single copy.** HFS+ does not detect bit rot, and
+  checks are not scheduled: run `om verify` (and `shasum -a 256 -c --quiet SHA256SUMS`
+  in `runtimes/` and `repo/`) by hand, at least at each six-month refresh. Until there is a
+  second copy, a damaged model can only be repaired by downloading it again while the
+  upstream repo exists: delete the bad file, then `om fetch <id>`.
+- **TODO (deferred, no drive yet):** a second archive drive, with an `om` command to
+  mirror the archive to it and repair a bad file from the good copy. Scheduled checks
+  are worth adding then, since a check could also repair.
+- **The repo mirror is only as fresh as the last `scripts/mirror_repo.sh` run,** and
+  holds committed work only.
 - **No serving layer or model switching yet.** You run llama.cpp by hand (Stage 5).
   Stage 5 will also decide whether to use Ollama, after benchmarking it against
   llama.cpp's `llama-server` on the same models.

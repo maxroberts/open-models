@@ -20,6 +20,10 @@ scripts is in `runtimes/tools/`, in case the repo itself is missing.
 | `tools/` | the scripts below, this guide, and `manifest.tsv` |
 | `SHA256SUMS` | sha256 of every file above |
 
+The repo itself is in the archive's `repo/` folder (written by `scripts/mirror_repo.sh`):
+`open-models.bundle` (full git history), `open-models.tar.gz` (the latest commit's files,
+no git needed), `MIRROR.txt` (which commit, and when), and `SHA256SUMS`.
+
 Upstream files are pinned in `runtimes/manifest.tsv`, which says where each hash came
 from. Not archived: the OS, compilers (Xcode Command Line Tools, gcc), and OS libraries.
 
@@ -34,7 +38,12 @@ from. Not archived: the OS, compilers (Xcode Command Line Tools, gcc), and OS li
 
 ## Steps on a new machine
 
-Check the archive first, from inside `runtimes/`: `shasum -a 256 -c --quiet SHA256SUMS`.
+Check the archive first: run `shasum -a 256 -c --quiet SHA256SUMS` inside `runtimes/` and
+inside `repo/`.
+
+0. **The repo**, if you don't have it: `git clone <archive>/repo/open-models.bundle open-models`.
+   Without git: `tar xzf <archive>/repo/open-models.tar.gz`. The scripts are in its
+   `scripts/` folder (and also in `runtimes/tools/`).
 
 1. **cmake** (skip if installed): unpack the binary from `cmake/` and put its `bin/` on
    `PATH`. On the original Pi, build it from `sources/cmake-4.4.3.tar.gz`
