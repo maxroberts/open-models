@@ -610,3 +610,71 @@ models:
       b12233+ misreads MXFP8 tables with no error (engram/README.md). Must run with
       --ple engram/DeepSeek-V4.1-Flash-1017-engram-Q6_K.gguf_file; without it, loading
       fails because shard 00008 is absent. Needs ~512 GB RAM.'
+
+  - id: glm-ocr-q8
+    name: GLM-OCR 0.9B (Q8_0)
+    repo: ggml-org/GLM-OCR-GGUF
+    revision: 65a42de1148dbed2297e922b5dbc7d9b70c36578
+    format: gguf
+    tier: edge
+    role: chat
+    license: mit
+    pinned: '2026-11-24'
+    files:
+    - path: GLM-OCR-Q8_0.gguf
+      size: 950433408
+      sha256: 45bc244a6446aff850521dc41f18bc8d7105ad5f0c2c8c28af04e7cc4f4d50b1
+    - path: README.md
+      size: 239
+      sha256: 1cc36c11b1123837af16a1ba3a45d1fee170f581859df125eec7390a90475fac
+    - path: mmproj-GLM-OCR-Q8_0.gguf
+      size: 484403648
+      sha256: 9c4b58e33e316ed142eb5dcb41abec3844d3e6e5dc361ffb782c3fa9d175141f
+    notes: Document OCR, not a chat model. Prompts must be exactly 'Text Recognition:',
+      'Formula Recognition:' or 'Table Recognition:' with an image, or a strict JSON
+      schema for information extraction (zai-org/GLM-OCR card). Vision via mmproj-GLM-OCR-Q8_0.gguf.
+      License MIT per the original zai-org/GLM-OCR repo (this GGUF conversion repo has
+      no license tag).
+
+  - id: glm-4.6v-flash-q4
+    name: GLM-4.6V-Flash 9B (Q4_K_M)
+    repo: unsloth/GLM-4.6V-Flash-GGUF
+    revision: c78a0727cb5ee489db2f218a212f613943023ee8
+    format: gguf
+    tier: utility
+    role: chat
+    license: mit
+    pinned: '2026-11-24'
+    files:
+    - path: GLM-4.6V-Flash-Q4_K_M.gguf
+      size: 6166578784
+      sha256: 4f06cac67c0ad96cabe4b6a99123f02393e63a4aaacc03486e0939dac0df0f31
+    - path: README.md
+      size: 9373
+      sha256: 6bf05c10b847dfe254dc08ac5be6f81fa65f03cbb1dfb7eaba65b4a03869557d
+    - path: mmproj-F16.gguf
+      size: 1786960000
+      sha256: cbdf92acdfd2cbe3db4a94141d5e9dc60aa39bd7d365da5b3e3bc7366b007761
+    notes: Vision-language model, Z.ai (Dec 2025). Vision via mmproj-F16.gguf. Its card
+      says pure-text answering is weaker and it may overthink or repeat itself; recommended
+      top_p 0.6, temperature 0.8.
+
+  - id: glm-4.7-flash-q8
+    name: GLM-4.7-Flash 30B-A3B (Q8_0)
+    repo: unsloth/GLM-4.7-Flash-GGUF
+    revision: 0d32489ecb9db6d2a4fc93bd27ef01519f95474d
+    format: gguf
+    tier: mid
+    role: chat
+    license: mit
+    pinned: '2026-11-24'
+    files:
+    - path: GLM-4.7-Flash-Q8_0.gguf
+      size: 31842799968
+      sha256: 8c0922b03326932a40315ce92bbee01cc836ad18664268019143c898bdd7dd0b
+    - path: README.md
+      size: 8597
+      sha256: c3ca90d7a4c4969a151d58f48d3672d1a2f0b95d90a5856a125c169918730aec
+    notes: 'MoE, 30B total / 3B active, MIT. unsloth recommends: repeat penalty off
+      (1.0), --min-p 0.01, temp 1.0 / top-p 0.95 (0.7 / 1.0 for tool calling). GGUFs
+      re-uploaded 2026-01-21 after a llama.cpp looping fix; this pin is after that.'

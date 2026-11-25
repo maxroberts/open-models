@@ -2,7 +2,8 @@
 
 Why each model in `catalog/models.yaml` was chosen, and what was checked. The catalog
 itself is the source of truth for exact files, revisions, and hashes; this document is
-the reasoning. Revisit it at each refresh ([REFRESH.md](REFRESH.md)).
+the reasoning. Revisit it at each refresh ([REFRESH.md](REFRESH.md)). For choosing between
+models (resources, speed, capability, safety), see [COMPARISON.md](COMPARISON.md).
 
 ## Requirements (from the owner)
 
@@ -54,6 +55,7 @@ Sizes are the files kept, in GB (10^9 bytes). All are GGUF.
 | embeddinggemma-2-q8 | 0.31 | Embeddings (document search) [7] |
 | qwen3-embedding-0.6b-q8 | 0.64 | Multilingual embeddings [8] |
 | qwen3-0.6b-q8 | 0.64 | Pipeline test model from Stage 1 |
+| glm-ocr-q8 | 1.43 | Reads text, tables and formulas from scanned documents; not a chat model (added 2026-11-24) [28] |
 
 ### Utility: this 16 GB M2 (T7 + archive)
 
@@ -64,6 +66,7 @@ Sizes are the files kept, in GB (10^9 bytes). All are GGUF.
 | gemma-4-e4b-qat | 5.15 | Fast everyday model [6] |
 | granite-4.2-8b-q4 | 5.35 | Tool use and document Q&A, IBM build [9] |
 | mellum2.1-12b-q4 | 8.07 | Coding; JetBrains build; needs llama.cpp b11747+ [10] |
+| glm-4.6v-flash-q4 | 7.95 | Z.ai vision model, so a GLM runs on this Mac; weaker at text-only answers (added 2026-11-24) [29] |
 
 ### Mid: ~24–128 GB machines (archive only)
 
@@ -76,6 +79,7 @@ Sizes are the files kept, in GB (10^9 bytes). All are GGUF.
 | qwen3.6-35b-a3b-q8 | 37.8 | Fast mixture-of-experts model, good for coding agents [3] |
 | gemma-4-31b-q8 | 33.8 | Google's largest Gemma 4 [6] |
 | qwen3-coder-next-q8 | 84.8 | Coding, 80B; Qwen's own build; run with `--jinja` [12] |
+| glm-4.7-flash-q8 | 31.8 | Z.ai 30B MoE (3B active) for 32 GB+ machines; repeat penalty off, `--min-p 0.01` (added 2026-11-24) [30] |
 
 ### Frontier: ~256 GB+ (archive only)
 
@@ -85,9 +89,15 @@ Sizes are the files kept, in GB (10^9 bytes). All are GGUF.
 | deepseek-v4.1-flash-q4xl | 460.2 | ~512 GB | 763B, MIT; a second lab as a hedge [14] |
 | glm-5.3-flash-q4xl | 200.8 | ~256 GB | 321B; the most realistic next-machine frontier model [15] |
 
-Catalog total: 1,514 GB, of which 45.5 GB is also on the T7.
+Catalog total: 1,555 GB, of which 54.9 GB is also on the T7.
 
 ## Things a reviewer should know
+
+- **The three smaller GLM models (added 2026-11-24) were tested on this Mac** through
+  `om serve` after download and hash check. glm-ocr-q8 read a two-line test image exactly
+  ("Text Recognition:" prompt). glm-4.6v-flash-q4 answered a text question correctly and
+  read the total and due date from the same image. glm-4.7-flash-q8 (mid tier, 31.8 GB) is
+  too big for this Mac and was only hash-checked.
 
 - **DeepSeek V4.1 Flash: shard 00008 is deliberately not kept.** It holds the model's
   "engram" table in MXFP8, which llama.cpp b12233 and newer reads as the wrong type and
@@ -238,3 +248,6 @@ found [24][25]. Verify with `llama-bench` on real hardware before buying.
 25. Unsloth GLM-5.3 GGUF discussion, "512GB Mac Studio benchmark?" (no measured GGUF results; Q4/Q3 sizes; `iogpu.wired_limit_mb`): https://huggingface.co/unsloth/GLM-5.3-GGUF/discussions/7
 26. local-inference-lab, GLM-5 on 8× RTX PRO 6000 (SGLang/vLLM, NVFP4, MTP; decode, prefill, power; March–May 2026): https://github.com/local-inference-lab/rtx6kpro/blob/master/models/glm5.md, https://github.com/local-inference-lab/rtx6kpro/blob/master/benchmarks/results.md
 27. NVIDIA GLM-5.3 NVFP4 (464 GB; NVIDIA Open Model Agreement + GLM-5.3 License): https://huggingface.co/nvidia/GLM-5.3-NVFP4
+28. GLM-OCR: https://huggingface.co/zai-org/GLM-OCR (0.9B, MIT, prompt formats). GGUF: https://huggingface.co/ggml-org/GLM-OCR-GGUF
+29. GLM-4.6V-Flash: https://huggingface.co/zai-org/GLM-4.6V-Flash (9B, 128K context, MIT, stated limitations). GGUF: https://huggingface.co/unsloth/GLM-4.6V-Flash-GGUF
+30. GLM-4.7-Flash: https://huggingface.co/zai-org/GLM-4.7-Flash (30B-A3B, MIT, benchmarks). GGUF and recommended settings: https://huggingface.co/unsloth/GLM-4.7-Flash-GGUF

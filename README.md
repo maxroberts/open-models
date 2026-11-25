@@ -26,7 +26,7 @@ Model weights must never be put inside the Dropbox folder.
 
 ## What's in the catalog
 
-26 models, about 1.5 TB, in four hardware tiers. Each model also has a role: chat, code
+29 models, about 1.55 TB, in four hardware tiers. Each model also has a role: chat, code
 or embedding. Which tier a model is in decides where it lives:
 
 | Tier | Runs on | Stored on |
@@ -37,6 +37,7 @@ or embedding. Which tier a model is in decides where it lives:
 | `frontier` | ~256 GB+ (GLM-5.3, GLM-5.3 Flash, DeepSeek V4.1 Flash) | archive only |
 
 Why each model was chosen, and what was checked: [docs/MODELS.md](docs/MODELS.md).
+How they compare on resources, speed, capability and safety: [docs/COMPARISON.md](docs/COMPARISON.md).
 It also covers how close the best model here (GLM-5.3) is to Claude Opus 5.5, and what
 hardware it would take to match Opus 5.5's responsiveness locally.
 The six-month update process: [docs/REFRESH.md](docs/REFRESH.md).
@@ -135,6 +136,7 @@ src/open_models/
                          llama-server router command line, launchd login agent
   cli.py                 the `om` command, built on the modules above
 docs/MODELS.md           why each model was chosen; compatibility findings; sources
+docs/COMPARISON.md       the models side by side: resources, speed, capability, safety
 docs/REFRESH.md          six-month refresh checklist
 docs/OFFLINE.md          rebuilding from the archive without internet, per target machine
 docs/SERVING.md          Ollama vs llama-server: benchmark, compatibility, recommendation

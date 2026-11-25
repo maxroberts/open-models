@@ -30,7 +30,8 @@ world-class open models even with no internet, from utility models up to frontie
 - Edge targets the user named: original 512 MB Raspberry Pi Model B (ARMv6), Pi 4/5, 2012 MacBook Air.
 
 ## Model choices
-docs/MODELS.md (rationale + sources) and docs/REFRESH.md (six-month refresh; next May 2027).
+docs/MODELS.md (rationale + sources), docs/COMPARISON.md (side-by-side; local speed
+measurements of the 18 working models pending a restart, 2026-11-24) and docs/REFRESH.md (six-month refresh; next May 2027).
 Verify claims against Hugging Face repos, not SEO "best LLM" pages. Check each GGUF's
 `gguf.architecture` against the installed llama.cpp and read READMEs for gotchas
 (e.g. DeepSeek V4.1 Flash shard 00008 skipped, run with `--ple`).
