@@ -105,7 +105,9 @@ uv run om serve             # or run the server in the foreground
 
 The first visit from a browser asks for the key; see "Using the chat from another
 computer" in [docs/SERVING.md](docs/SERVING.md). `om serve` adds the vision and
-embedding flags from the catalog, and unloads a model after 5 idle minutes.
+embedding flags from the catalog, and unloads a model after 5 idle minutes. Conversations stay on this Mac and the home network; see "Privacy" in
+[docs/SERVING.md](docs/SERVING.md) for the details and the opt-in features that reach the
+internet.
 
 Adding a model (full process in docs/REFRESH.md):
 

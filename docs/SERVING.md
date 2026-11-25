@@ -221,6 +221,57 @@ at login after a restart, and the retry while the T7 is unmounted.
   DeepSeek's `--ple`, aren't generated, because only working-store models are served
   and none needs one.
 
+## Privacy: what stays on this machine
+
+The models run entirely on this Mac. In normal use, nothing about a conversation goes
+beyond the home network. Checked 2026-11-24 (llama.cpp build 12359, `om serve` as above):
+- **Network connections:** the llama-server router and its model process held only local
+  connections: from the browsing computer on the home network, and between themselves on
+  this Mac. Nothing went to the internet.
+- **The chat page:** its HTML loads nothing from the internet, and its code has no
+  analytics or tracking. The word "telemetry" appears only in the bundled PDF viewer,
+  where it names internal events, not network calls.
+- **Logs:** prompts and replies are not written to `~/Library/Logs/open-models/serve.log`
+  (the test prompt did not appear in it). llama-server saves prompts only with
+  `--log-prompts-dir`, which `om serve` does not use.
+- **llama.cpp** reads model files from disk and has no update check or phone-home.
+
+Where conversation data does go:
+- **Across the home network, unencrypted.** The page and API use plain HTTP, so anyone
+  who can watch traffic on the home network could read a conversation. It does not
+  leave the network. For this Mac only, use `--host 127.0.0.1` with port forwarding
+  ("No network exposure" above).
+- **Into the browser you chat from.** The page saves conversations in that browser's own
+  storage (IndexedDB), on that computer, not on this Mac. Clearing the browser's site data
+  for the server's address deletes them.
+- **Not this Mac's disk**, except as above: the server keeps no conversation history.
+
+Features that do reach the internet. Each is off until used:
+- **Tool connections (MCP)** offered in the page's settings (Exa web search, GitHub,
+  Hugging Face, Context7). None is connected unless you add it. Once added, whatever is
+  sent to a tool goes to that service.
+- **"Use Hugging Face Hub"** (page settings, off by default) browses huggingface.co and
+  fetches a model catalog from llama.app.
+- **HEIC images** (iPhone photos): attaching one makes the page load a converter script
+  from cdn.jsdelivr.net. The photo is converted in the browser and not uploaded; the
+  download reveals only your IP address and that a conversion happened. JPEG and PNG
+  need nothing.
+- **Image links:** a message that gives an image as a web address (`image_url`), instead
+  of an upload, makes this Mac download that image.
+
+Outside the chat:
+- **Claude Code sessions** (like the one that built this) send what they read to
+  Anthropic, including model answers read during tests. Chats in the page don't involve
+  it.
+- **Ollama** is installed but not running and not used for these chats. Its cloud
+  features are on by default (`OLLAMA_NO_CLOUD=1` turns them off).
+
+How this was checked: `lsof` on every llama-server process during a live chat; the page's
+HTML and JavaScript (as served by this build) searched for outside addresses, analytics
+and the code paths behind each address found; the server log searched for a test
+prompt. A newer llama.cpp build can change any of this, so recheck after updating
+llama.cpp.
+
 ## Current state of this machine
 
 - An API key for the network chat is in `~/.config/open-models/llama-server.key`.
